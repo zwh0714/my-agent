@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 多模型任务台</title>
+
+    <!-- 本地依赖（离线可用，不依赖外网 CDN） -->
+    <script src="/static/vendor/marked.min.js"></script>
+    <script src="/static/vendor/purify.min.js"></script>
+    <script src="/static/vendor/highlight.min.js" onerror="window.__noHLJS=1"></script>
+
+    <style>
+        /* ============ 主题变量 ============ */
+        :root[data-theme="light"] {
+            --bg:#f6f8fa; --panel:#ffffff; --panel-2:#f0f3f6; --border:#d0d7de;
+            --text:#1f2328; --text-dim:#656d76; --accent:#0969da; --accent-2:#218bff;
+            --user-bubble:#0969da; --user-text:#fff; --agent-bubble:#f6f8fa;
+            --ok:#1a7f37; --warn:#9a6700; --err:#cf222e; --busy:#0969da;
+            --code-bg:#f0f3f6; --code-text:#cf222e; --shadow:rgba(31,35,40,.08);
+        }
+        :root[data-theme="dark"] {
+            --bg:#0d1117; --panel:#161b22; --panel-2:#21262d; --border:#30363d;
+            --text:#e6edf3; --text-dim:#8b949e; --accent:#58a6ff; --accent-2:#79c0ff;
+            --user-bubble:#238636; --user-text:#fff; --agent-bubble:#21262d;
+            --ok:#3fb950; --warn:#d29922; --err:#f85149; --busy:#58a6ff;
+            --code-bg:#161b22; --code-text:#ff7b72; --shadow:rgba(0,0,0,.4);
+        }
+        :root[data-theme="sepia"] {
+            --bg:#f4ecd8; --panel:#fdf6e3; --panel-2:#efe6cf; --border:#d8cbb0;
+            --text:#433422; --text-dim:#8a7a5c; --accent:#b45309; --accent-2:#d97706;
+            --user-bubble:#b45309; --user-text:#fff; --agent-bubble:#f7efda;
+            --ok:#5a7d2a; --warn:#a16207; --err:#b91c1c; --busy:#b45309;
+            --code-bg:#efe6cf; --code-text:#b91c1c; --shadow:rgba(67,52,34,.12);
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+        :root { --ease-flow: cubic-bezier(.22,.61,.36,1); }
+        body {
+            font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background:var(--bg); color:var(--text);
+            height:100vh; display:flex; overflow:hidden;
+            transition:background .3s, color .3s;
+        }
+        ::-webkit-scrollbar { width:8px; height:8px; }
+        ::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+
+        /* ============ 左侧模型列表 ============ */
+        .sidebar {
+            width:230px; flex-shrink:0;
+            background:var(--panel); border-right:1px solid var(--border);
+            display:flex; flex-direction:column;
+        }
+        .sidebar-head { padding:16px 16px 12px; border-bottom:1px solid var(--border); }
+        .sidebar-head h1 { font-size:15px; font-weight:700; letter-spacing:.3px; }
+        .sidebar-head .sub { font-size:11px; color:var(--text-dim); margin-top:3px; }
+
+        .sidebar-actions { display:flex; gap:6px; padding:12px 12px 0; }
+        .sid-btn {
+            flex:1; padding:7px 0; border:1px solid var(--border); background:var(--panel-2);
+            color:var(--text); border-radius:8px; font-size:11.5px; cursor:pointer;
+            transition:all .18s; white-space:nowrap;
+        }
+        .sid-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--panel); }
+
+        /* ===== 通用居中弹窗 ===== */
+        .modal-mask {
+            position:fixed; inset:0; background:rgba(0,0,0,.42);
+            display:none; align-items:center; justify-content:center; z-index:9999;
+            backdrop-filter:blur(2px);
+        }
+        .modal-mask.show { display:flex; }
+        .modal {
+            width:min(460px, 92vw); max-height:88vh; overflow:auto;
+            background:var(--panel); border:1px solid var(--border); border-radius:14px;
+            box-shadow:0 12px 40px var(--shadow); animation:modal-in .2s var(--ease-flow);
+        }
+        @keyframes modal-in { 0%{opacity:0;transform:scale(.94) translateY(8px);} 100%{opacity:1;transform:scale(1) translateY(0);} }
+        .modal-head {
+            display:flex; align-items:center; gap:8px; padding:14px 18px;
+            border-bottom:1px solid var(--border); font-size:14px; font-weight:600;
+        }
+        .modal-head .modal-x { margin-left:auto; cursor:pointer; color:var(--text-dim); font-size:18px; line-height:1; }
+        .modal-head .modal-x:hover { color:var(--err); }
+        .modal-body { padding:16px 18px; display:flex; flex-direction:column; gap:12px; }
+        .field { display:flex; flex-direction:column; gap:5px; }
+        .field label { font-size:12px; color:var(--text-dim); }
+        .field input[type=text], .field input[type=password], .field textarea {
+            padding:8px 11px; border:1px solid var(--border); border-radius:8px;
+            background:var(--panel-2); color:var(--text); font-size:12.5px;
+            font-family:inherit; outline:none; transition:border .18s;
+        }
+        .field input:focus, .field textarea:focus { border-color:var(--accent); }
+        .field textarea { resize:vertical; min-height:160px; line-height:1.55; }
+        .field .hint { font-size:11px; color:var(--text-dim); }
+        .field.inline { flex-direction:row; align-items:center; gap:8px; }
+        .modal-foot { display:flex; justify-content:flex-end; gap:10px; padding:0 18px 18px; }
+        .modal-foot button {
+            padding:8px 18px; border-radius:8px; border:1px solid var(--border);
+            background:var(--panel-2); color:var(--text); font-size:12.5px; cursor:pointer;
+            transition:all .18s;
+        }
+        .modal-foot button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+        .modal-foot button.primary:hover { background:var(--accent-2); }
+        .modal-foot button:hover:not(.primary) { border-color:var(--accent); }
+        .modal-msg { font-size:12px; padding:7px 11px; border-radius:7px; display:none; }
+        .modal-msg.ok { display:block; background:rgba(26,127,55,.12); color:var(--ok); }
+        .modal-msg.err { display:block; background:rgba(207,34,46,.12); color:var(--err); }
+
+        .theme-row { display:flex; gap:6px; padding:12px 16px; border-bottom:1px solid var(--border); }
+        .theme-btn {
+            flex:1; padding:6px 0; border:1px solid var(--border); background:var(--panel-2);
+            color:var(--text-dim); border-radius:8px; font-size:11px; cursor:pointer; transition:all .18s;
+        }
+        .theme-btn:hover { border-color:var(--accent); color:var(--text); }
+        .theme-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+
+        .model-list { flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:6px; }
+        .model-item {
+            display:flex; align-items:center; gap:9px;
+            padding:9px 11px; border-radius:10px; cursor:pointer;
+            border:1px solid transparent; background:var(--panel-2);
+            transition:background .18s, border-color .18s, transform .18s var(--ease-flow);
+        }
+        .model-item:hover { background:var(--panel); border-color:var(--accent); transform:translateX(2px); }
+        .model-item .m-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+        .model-item .m-dot.local { background:var(--warn); }
+        .model-item .m-dot.api { background:var(--accent); }
+        .model-item .m-vision, .card-head .c-vision { font-size:11px; opacity:.75; margin-left:2px; }
+        .model-item .m-name { flex:1; font-size:12.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+        /* ---- 叠加状态徽标 ---- */
+        .badge-stack { display:flex; align-items:center; flex-shrink:0; }
+        .badge-stack:empty { display:none; }
+        .badge {
+            width:22px; height:22px; border-radius:50%;
+            display:flex; align-items:center; justify-content:center;
+            font-size:10px; color:#fff; font-weight:600;
+            border:2px solid var(--panel);
+            margin-left:-13px;
+            transition:margin .22s var(--ease-flow), transform .22s var(--ease-flow);
+            animation:badge-pop .25s var(--ease-flow);
+        }
+        .badge:first-child { margin-left:0; }
+        .badge-stack:hover .badge { margin-left:-4px; }
+        .badge.running { background:var(--busy); }
+        .badge.done { background:var(--ok); }
+        .badge.error { background:var(--err); }
+        .badge .spin {
+            width:11px; height:11px; border:2px solid rgba(255,255,255,.4);
+            border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite;
+        }
+        .badge.more { background:var(--text-dim); }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        @keyframes badge-pop { 0%{ transform:scale(.4); opacity:0;} 60%{ transform:scale(1.25);} 100%{ transform:scale(1); opacity:1;} }
+
+        /* ============ 主区域 ============ */
+        .main { flex:1; display:flex; flex-direction:column; min-width:0; }
+        .topbar {
+            display:flex; align-items:center; gap:14px;
+            padding:12px 22px; background:var(--panel);
+            border-bottom:1px solid var(--border); flex-shrink:0;
+        }
+        .topbar h2 { font-size:15px; font-weight:600; }
+        .topbar .spacer { flex:1; }
+        .topbar .pill {
+            font-size:12px; padding:4px 12px; border-radius:12px;
+            background:var(--panel-2); color:var(--text-dim); white-space:nowrap;
+        }
+        .topbar .pill b { color:var(--accent); font-weight:600; }
+
+        /* ===== 动态网格 =====
+           1 个 → 1×1 满屏；2 个 → 2×1（各 1/2 宽）；
+           3 个 → 3×1（各 1/3 宽）；4~6 个 → 3×2（各 1/3 宽 × 1/2 高） */
+        .stage {
+            flex:1; padding:16px;
+            display:grid;
+            gap:14px;
+            overflow:hidden;
+            min-height:0;
+            /* 默认：空态铺满一屏 */
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr;
+        }
+        /* 列数 = 卡片数（1/2/3 列）；>3 固定 3 列 */
+        .stage[data-cols="1"] { grid-template-columns: 1fr; }
+        .stage[data-cols="2"] { grid-template-columns: repeat(2, 1fr); }
+        .stage[data-cols="3"] { grid-template-columns: repeat(3, 1fr); }
+        /* 行数：≤3 单行满高；>3 两行各半高 */
+        .stage[data-rows="1"] { grid-template-rows: 1fr; }
+        .stage[data-rows="2"] { grid-template-rows: repeat(2, 1fr); }
+        .stage > .card { min-height:0; min-width:0; height:100%; }
+        .stage-empty {
+            grid-column: 1 / -1; grid-row: 1 / -1;
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            color:var(--text-dim); font-size:13px; text-align:center;
+        }
+        .stage-empty .big { font-size:40px; margin-bottom:14px; opacity:.6; }
+
+        /* ---- 卡片 ---- */
+        .card {
+            background:var(--panel); border:1px solid var(--border);
+            border-radius:14px; display:flex; flex-direction:column;
+            overflow:hidden; box-shadow:0 2px 10px var(--shadow);
+            animation:card-in .3s var(--ease-flow);
+            height:100%;
+        }
+        .card.leaving { animation:card-out .24s var(--ease-flow) forwards; }
+        @keyframes card-in {
+            0% { opacity:0; transform:translateX(-26px) scale(.94); }
+            100% { opacity:1; transform:translateX(0) scale(1); }
+        }
+        @keyframes card-out {
+            0% { opacity:1; transform:scale(1); }
+            100% { opacity:0; transform:scale(.9); }
+        }
+        .card-head {
+            display:flex; align-items:center; gap:8px;
+            padding:8px 12px; background:var(--panel-2);
+            border-bottom:1px solid var(--border); flex-shrink:0;
+        }
+        .card-head .c-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+        .card-head .c-dot.local { background:var(--warn); }
+        .card-head .c-dot.api { background:var(--accent); }
+        .card-head .c-name { flex:1; font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .card-head .c-status { font-size:10.5px; padding:2px 8px; border-radius:10px; white-space:nowrap; }
+        .c-status.running { background:var(--busy); color:#fff; }
+        .c-status.done { background:var(--ok); color:#fff; }
+        .c-status.error { background:var(--err); color:#fff; }
+        .card-head .card-reset {
+            width:22px; height:22px; border-radius:6px; border:none; cursor:pointer;
+            background:transparent; color:var(--text-dim); font-size:13px; line-height:1;
+            transition:background .18s, color .18s;
+        }
+        .card-head .card-reset:hover { background:var(--warn); color:#fff; }
+        .card-head .close {
+            width:22px; height:22px; border-radius:6px; border:none; cursor:pointer;
+            background:transparent; color:var(--text-dim); font-size:15px; line-height:1;
+            transition:background .18s, color .18s;
+        }
+        .card-head .close:hover { background:var(--err); color:#fff; }
+
+        .card-chat {
+            flex:1; overflow-y:auto; padding:10px 12px;
+            display:flex; flex-direction:column; gap:9px; min-height:0;
+        }
+        .msg {
+            max-width:94%; padding:7px 11px; border-radius:10px;
+            line-height:1.55; font-size:12.3px; word-wrap:break-word;
+        }
+        .msg.user { align-self:flex-end; background:var(--user-bubble); color:var(--user-text); border-bottom-right-radius:3px; white-space:pre-wrap; }
+        .msg.agent { align-self:flex-start; background:var(--agent-bubble); border:1px solid var(--border); width:fit-content; max-width:100%; }
+        .msg.agent .token-tag { margin-top:6px; padding-top:5px; border-top:1px dashed var(--border); font-size:10px; color:var(--warn); }
+        .msg.agent .token-tag .sub { color:var(--text-dim); }
+
+        /* markdown */
+        .md-body > *:first-child { margin-top:0; }
+        .md-body > *:last-child { margin-bottom:0; }
+        .md-body p { margin:5px 0; }
+        .md-body h1,.md-body h2,.md-body h3,.md-body h4 { margin:10px 0 5px; font-weight:600; line-height:1.3; }
+        .md-body h1 { font-size:15px; border-bottom:1px solid var(--border); padding-bottom:3px; }
+        .md-body h2 { font-size:14px; border-bottom:1px solid var(--border); padding-bottom:3px; }
+        .md-body h3 { font-size:13px; }
+        .md-body ul,.md-body ol { margin:5px 0; padding-left:18px; }
+        .md-body li { margin:2px 0; }
+        .md-body a { color:var(--accent); text-decoration:none; }
+        .md-body a:hover { text-decoration:underline; }
+        .md-body blockquote { margin:7px 0; padding:5px 10px; border-left:3px solid var(--accent); background:var(--panel-2); border-radius:0 6px 6px 0; }
+        .md-body hr { border:none; border-top:1px solid var(--border); margin:10px 0; }
+        .md-body code { background:var(--code-bg); padding:1px 5px; border-radius:4px; font-size:11px; font-family:Consolas,monospace; color:var(--code-text); border:1px solid var(--border); }
+        .md-body pre { margin:7px 0; padding:9px 11px; background:var(--code-bg); border:1px solid var(--border); border-radius:8px; overflow-x:auto; }
+        .md-body pre code { background:none; border:none; padding:0; color:var(--text); font-size:11px; line-height:1.5; }
+        .md-body table { border-collapse:collapse; margin:8px 0; width:100%; font-size:11.5px; display:block; overflow-x:auto; }
+        .md-body th,.md-body td { border:1px solid var(--border); padding:4px 8px; text-align:left; }
+        .md-body th { background:var(--panel-2); font-weight:600; white-space:nowrap; }
+        .md-body input[type="checkbox"] { margin-right:5px; vertical-align:middle; }
+
+        /* ---- 输入区：发送键与输入框第一行对齐，输入框随文字自适应增高 ---- */
+        .card-input {
+            display:flex; align-items:flex-start;    /* 顶部对齐 → 按钮对齐第一行 */
+            gap:8px; padding:9px 11px;
+            background:var(--panel-2); border-top:1px solid var(--border);
+            flex-shrink:0;
+        }
+        .card-input textarea {
+            flex:1; min-width:0; resize:none; overflow-y:hidden;   /* 高度由 JS 自适应 */
+            padding:8px 12px; background:var(--panel);
+            border:1px solid var(--border); border-radius:8px; color:var(--text);
+            font-family:inherit; font-size:12.5px; line-height:1.5;
+            outline:none; transition:border .2s;
+            max-height:120px;                                       /* 最高约 6 行 */
+            min-height:36px;
+        }
+        .card-input textarea:focus { border-color:var(--accent); }
+        .card-input textarea::placeholder { color:var(--text-dim); }
+        .card-input textarea:disabled { opacity:.6; }
+        .card-input button {
+            padding:8px 15px; background:var(--accent); color:#fff; border:none;
+            border-radius:8px; font-size:12.5px; font-weight:500; cursor:pointer;
+            transition:background .2s; white-space:nowrap;
+            height:36px;                                            /* 与输入框首行等高 → 对齐第一行 */
+            display:flex; align-items:center; justify-content:center;
+        }
+        .card-input button:hover { background:var(--accent-2); }
+        .card-input button:disabled { opacity:.5; cursor:not-allowed; }
+
+        /* 图片上传按钮 */
+        .card-input .img-btn {
+            width:36px; height:36px; padding:0; flex-shrink:0;
+            background:var(--panel); color:var(--text-dim);
+            border:1px solid var(--border); font-size:15px;
+        }
+        .card-input .img-btn:hover { background:var(--panel-2); color:var(--text); }
+
+        /* 待发送图片预览条 */
+        .card-previews {
+            display:none; gap:6px; padding:8px 11px 0; flex-wrap:wrap;
+            background:var(--panel-2); border-top:1px solid var(--border);
+        }
+        .card-previews .pv-item { position:relative; width:52px; height:52px; }
+        .card-previews .pv-item img {
+            width:100%; height:100%; object-fit:cover;
+            border-radius:6px; border:1px solid var(--border);
+        }
+        .card-previews .pv-x {
+            position:absolute; top:-6px; right:-6px; width:16px; height:16px;
+            background:var(--err); color:#fff; border-radius:50%;
+            font-size:11px; line-height:16px; text-align:center; cursor:pointer;
+            box-shadow:0 0 0 2px var(--panel-2);
+        }
+
+        /* 用户气泡里的图片 */
+        .msg.user .ub-pics { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
+        .msg.user .ub-pics img {
+            max-width:120px; max-height:120px; border-radius:6px;
+            border:1px solid rgba(255,255,255,.2);
+        }
+        .msg.user .ub-text { white-space:pre-wrap; }
+
+        .cursor { display:inline-block; width:2px; height:13px; background:var(--accent); animation:blink 1s step-end infinite; vertical-align:text-bottom; }
+        @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+
+        /* 窄屏：一列铺满，可滚动 */
+        @media (max-width:900px) {
+            .sidebar { width:64px; }
+            .sidebar-head .sub, .theme-row, .model-item .m-name { display:none; }
+            .stage { grid-template-columns:1fr; grid-template-rows:none; overflow-y:auto; }
+            .stage > .card { height:60vh; }
+        }
+
+        /* ===== 底部常驻群聊栏 ===== */
+        .chatbar {
+            flex-shrink:0;                        /* 永远贴在 .main 底部 */
+            border-top:1px solid var(--border);
+            background:var(--panel);
+            padding:8px 14px 10px;
+            display:flex; flex-direction:column; gap:6px;
+        }
+        .chatbar .cb-thumbs { display:flex; flex-wrap:wrap; gap:8px; }
+        .chatbar .cb-thumbs:empty { display:none; }
+        .cb-thumb {
+            position:relative; width:56px; height:56px; border-radius:8px;
+            overflow:hidden; border:1px solid var(--border); background:var(--panel-2);
+        }
+        .cb-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+        .cb-thumb .x {
+            position:absolute; top:0; right:0; width:16px; height:16px;
+            display:flex; align-items:center; justify-content:center;
+            background:rgba(0,0,0,.55); color:#fff; font-size:11px;
+            cursor:pointer; line-height:1;
+        }
+        .cb-tools { display:flex; align-items:center; gap:12px; }
+        .cb-attach {
+            cursor:pointer; font-size:18px; line-height:1;
+            user-select:none; opacity:.85;
+        }
+        .cb-attach:hover { opacity:1; }
+        .cb-target { font-size:12px; color:var(--muted); }
+        .cb-target b { color:var(--text); }
+        .cb-row { display:flex; align-items:flex-start; gap:10px; }
+        /* 群发输入框：横向拉长到原来的 3 倍（用 flex 权重 3:1 表达） */
+        .cb-row textarea {
+            flex:3 1 0; resize:none; max-height:340px; min-height:110px;
+            padding:11px 14px; border-radius:10px; line-height:1.5;
+            border:1px solid var(--border); background:var(--panel-2);
+            color:var(--text); font-size:14px; font-family:inherit;
+            outline:none;
+        }
+        .cb-row textarea:focus { border-color:#3b82f6; }
+        /* 发送键：宽度缩小到原来的 1/3 */
+        .cb-row button {
+            flex:0 0 auto; height:114px; padding:0 10px; width:34px; border-radius:10px;
+            border:none; background:#3b82f6; color:#fff; font-size:12px;
+            font-weight:600; cursor:pointer;
+        }
+        .cb-row button:disabled { opacity:.5; cursor:not-allowed; }
+    </style>
+</head>
+<body>
+
+<!-- ============ 左侧模型列表 ============ -->
+<aside class="sidebar">
+    <div class="sidebar-head">
+        <h1>🤖 多模型任务台</h1>
+        <div class="sub">点击模型 → 流入大屏</div>
+    </div>
+    <div class="sidebar-actions">
+        <button class="sid-btn" id="btnAddModel">➕ 接入模型</button>
+        <button class="sid-btn" id="btnEditConstraint">⚙️ 约束词</button>
+    </div>
+    <div class="theme-row">
+        <button class="theme-btn active" data-theme="light">亮色</button>
+        <button class="theme-btn" data-theme="dark">暗色</button>
+        <button class="theme-btn" data-theme="sepia">护眼</button>
+    </div>
+    <div class="model-list" id="modelList"></div>
+</aside>
+
+<!-- ============ 主区域 ============ -->
+<div class="main">
+    <div class="topbar">
+        <h2 id="stageTitle">大屏对比区</h2>
+        <span class="spacer"></span>
+        <span class="pill">🪙 合计 <b id="tokenBox">0</b> tokens</span>
+        <span class="pill">📦 卡片 <b id="cardCount">0</b>/6</span>
+    </div>
+    <div class="stage" id="stage"></div>
+</div>
+
+<!-- ============ 底部：多模型群聊栏（常驻，一键群发） ============ -->
+<div class="chatbar" id="chatbar">
+    <div class="cb-thumbs" id="cbThumbs"></div>
+    <div class="cb-tools">
+        <label class="cb-attach" title="发送图片给所有模型识别">
+            🖼️
+            <input type="file" id="cbFile" accept="image/*" multiple hidden>
+        </label>
+        <span class="cb-target" id="cbTarget">群发给全部模型</span>
+    </div>
+    <div class="cb-row">
+        <textarea id="cbInput" rows="3"
+            placeholder="群发消息给大屏上的全部模型...（Enter 发送 / Shift+Enter 换行）"></textarea>
+        <button id="cbSend">发送</button>
+    </div>
+</div>
+
+<script>
+    // ================= 全局状态 =================
+    const USER_ID = 'zwh';              // 固定，同模型共享记忆
+    const API_URL = '/chat/stream';
+    const RESET_URL = '/reset';
+    const MAX_CARDS = 6;
+
+    let MODELS = [];
+    let DEFAULT_MODEL = '';
+    let sessionTokens = 0;
+
+    // 【核心数据结构 v2 — 字段冻结】 每个卡片 = 一个 task
+    // task = {
+    //   task_id, model_id, model_label, type, status:'idle|running|done|error|removed',
+    //   detached:boolean, messages:[{role,content}],
+    //   tokens:{prompt,completion,total}, error_msg:string|null,
+    //   images:[{name, data_url}]   ← 待发送的图片（发送后清空）
+    // }
+    let tasks = [];
+    let cardSeq = 0;
+
+    // ================= Markdown =================
+    if (window.marked) {
+        marked.setOptions({ gfm:true, breaks:true, headerIds:false, mangle:false });
+    }
+    const PURIFY_CONFIG = {
+        ALLOWED_TAGS:['h1','h2','h3','h4','h5','h6','p','br','hr','strong','em','del','s','ul','ol','li','blockquote','a','code','pre','span','div','table','thead','tbody','tr','th','td','img','input'],
+        ALLOWED_ATTR:['href','title','target','rel','class','src','alt','type','checked','disabled'],
+    };
+    function renderMarkdown(text) {
+        if (!text) return '';
+        try {
+            if (!window.marked || !window.DOMPurify) throw new Error('md lib missing');
+            return DOMPurify.sanitize(marked.parse(text), PURIFY_CONFIG);
+        } catch (e) {
+            // 兜底：任何库缺失/异常，退化为安全的纯文本渲染
+            const d = document.createElement('div');
+            d.textContent = text;
+            return d.innerHTML.replace(/\n/g, '<br>');
+        }
+    }
+    function highlightIn(node) {
+        if (window.hljs) node.querySelectorAll('pre code').forEach(b=>{ try{hljs.highlightElement(b);}catch(e){} });
+    }
+
+    // ================= 工具 =================
+    const $ = (id) => document.getElementById(id);
+    const el = (tag, cls, txt) => { const n=document.createElement(tag); if(cls)n.className=cls; if(txt!=null)n.textContent=txt; return n; };
+    const STATUS_ORDER = { running:0, error:1, done:2, idle:3 };
+
+    function updateCounters() {
+        const visible = tasks.filter(t => t.status !== 'removed').length;
+        $('cardCount').textContent = visible;
+        $('tokenBox').textContent = sessionTokens;
+    }
+
+    // ================= 输入框自适应高度 =================
+    function autoGrow(ta) {
+        if (!ta) return;
+        ta.style.height = 'auto';
+        ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+    }
+
+    // ================= 布局：列数=卡片数(≤3)，行数≤3为1行、>3为2行 =================
+    function updateStageRows() {
+        const stage = $('stage');
+        if (!stage) return;
+        const n = tasks.filter(t => t.status !== 'removed').length;
+        const cols = n <= 3 ? Math.max(n, 1) : 3;   // 1/2/3 列；>3 固定 3 列（空态=1）
+        const rows = n <= 3 ? 1 : 2;                // ≤3 单行满高；>3 两行各半高
+        stage.setAttribute('data-cols', String(cols));
+        stage.setAttribute('data-rows', String(rows));
+    }
+
+    // ================= 左侧列表渲染 =================
+    function renderModelList() {
+        const list = $('modelList');
+        list.innerHTML = '';
+        MODELS.forEach(m => {
+            const item = el('div', 'model-item');
+            item.dataset.model = m.id;
+            item.appendChild(el('span', 'm-dot ' + m.type));
+            item.appendChild(el('span', 'm-name', m.label));
+            if (m.vision) {
+                const eye = el('span', 'm-vision', '👁');
+                eye.title = '支持图片识图';
+                item.appendChild(eye);
+            }
+
+            const modelTasks = tasks.filter(t => t.model_id === m.id);
+            const stack = el('div', 'badge-stack');
+            const active = modelTasks.filter(t => t.status === 'running' || t.status === 'error' || t.status === 'done');
+            // 忙→错误→完成，保证"忙"最左完整显示
+            active.sort((a,b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
+
+            active.slice(0, 4).forEach(t => {
+                const b = el('div', 'badge ' + t.status);
+                if (t.status === 'running') b.appendChild(el('span', 'spin'));
+                else if (t.status === 'done') b.textContent = '✓';
+                else if (t.status === 'error') b.textContent = '✕';
+                stack.appendChild(b);
+            });
+            if (active.length > 4) stack.appendChild(el('div', 'badge more', '+' + (active.length - 4)));
+
+            item.appendChild(stack);
+            item.addEventListener('click', () => addCard(m));
+            list.appendChild(item);
+        });
+    }
+
+    // ================= 卡片 DOM =================
+    function createCardDOM(task) {
+        const card = el('div', 'card');
+        card.id = 'card-' + task.task_id;
+
+        const head = el('div', 'card-head');
+        head.appendChild(el('span', 'c-dot ' + task.type));
+        head.appendChild(el('span', 'c-name', task.model_label));
+        if (task.vision) head.appendChild(el('span', 'c-vision', '👁'));
+        const statusTag = el('span', 'c-status'); statusTag.id = 'st-' + task.task_id;
+        head.appendChild(statusTag);
+        const cReset = el('button', 'card-reset', '🔄');
+        cReset.title = '重置该会话（清空本卡上下文 + 对话）';
+        cReset.addEventListener('click', () => resetCard(task.task_id));
+        head.appendChild(cReset);
+        const close = el('button', 'close', '✕');
+        close.title = '移出大屏（任务仍后台运行）';
+        close.addEventListener('click', () => closeCard(task.task_id));
+        head.appendChild(close);
+        card.appendChild(head);
+
+        const chat = el('div', 'card-chat'); chat.id = 'chat-' + task.task_id;
+        card.appendChild(chat);
+
+        // 图片预览条（仅 vision 模型显示）
+        const previews = el('div', 'card-previews');
+        previews.id = 'pv-' + task.task_id;
+        card.appendChild(previews);
+
+        const inputRow = el('div', 'card-input');
+        const ta = el('textarea');
+        ta.id = 'in-' + task.task_id;
+        ta.rows = 1;
+        ta.placeholder = '给「' + task.model_label + '」布置任务...（Enter 发送 / Shift+Enter 换行）';
+        ta.addEventListener('input', () => autoGrow(ta));
+
+        // 图片上传按钮：仅当模型支持视觉时显示
+        if (task.vision) {
+            const fileInput = el('input');
+            fileInput.type = 'file';
+            fileInput.accept = 'image/*';
+            fileInput.multiple = true;
+            fileInput.style.display = 'none';
+            fileInput.id = 'file-' + task.task_id;
+            fileInput.addEventListener('change', () => {
+                Array.from(fileInput.files || []).forEach(f => addImage(task.task_id, f));
+                fileInput.value = '';
+            });
+            const imgBtn = el('button', 'img-btn', '🖼');
+            imgBtn.title = '添加图片（支持多张）';
+            imgBtn.addEventListener('click', () => fileInput.click());
+            inputRow.appendChild(fileInput);
+            inputRow.appendChild(imgBtn);
+        }
+
+        const btn = el('button', null, '发送');
+        btn.id = 'btn-' + task.task_id;
+        const doSend = () => sendTask(task.task_id);
+        btn.addEventListener('click', doSend);
+        ta.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
+        });
+        inputRow.appendChild(ta); inputRow.appendChild(btn);
+        card.appendChild(inputRow);
+
+        renderPreviews(task);
+        return card;
+    }
+
+    // ================= 图片处理 =================
+    const MAX_IMAGE_BYTES = 5 * 1024 * 1024;   // 单张 5MB 上限
+    const MAX_IMAGES = 4;
+
+    function addImage(taskId, file) {
+        const task = tasks.find(t => t.task_id === taskId);
+        if (!task) return;
+        if (!file.type.startsWith('image/')) { flashTitle('只支持图片文件'); return; }
+        if (file.size > MAX_IMAGE_BYTES) { flashTitle('单张图片不能超过 5MB'); return; }
+        if (task.images.length >= MAX_IMAGES) { flashTitle('最多 ' + MAX_IMAGES + ' 张图片'); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+            task.images.push({ name: file.name, data_url: reader.result });
+            renderPreviews(task);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function removeImage(taskId, idx) {
+        const task = tasks.find(t => t.task_id === taskId);
+        if (!task) return;
+        task.images.splice(idx, 1);
+        renderPreviews(task);
+    }
+
+    function renderPreviews(task) {
+        const box = $('pv-' + task.task_id);
+        if (!box) return;
+        box.innerHTML = '';
+        if (!task.images || !task.images.length) { box.style.display = 'none'; return; }
+        box.style.display = 'flex';
+        task.images.forEach((img, i) => {
+            const wrap = el('div', 'pv-item');
+            const im = el('img'); im.src = img.data_url; im.title = img.name;
+            const x = el('span', 'pv-x', '×');
+            x.addEventListener('click', () => removeImage(task.task_id, i));
+            wrap.appendChild(im); wrap.appendChild(x); box.appendChild(wrap);
+        });
+    }
+
+    function setCardStatus(task) {
+        const tag = $('st-' + task.task_id);
+        const ta = $('in-' + task.task_id);
+        const btn = $('btn-' + task.task_id);
+        if (tag) {
+            tag.className = 'c-status';
+            if (task.status === 'running') { tag.className='c-status running'; tag.textContent='忙'; }
+            else if (task.status === 'done') { tag.className='c-status done'; tag.textContent='已完成'; }
+            else if (task.status === 'error') { tag.className='c-status error'; tag.textContent='X'; }
+            else tag.textContent = '';
+        }
+        if (ta && btn) {
+            const busy = task.status === 'running';
+            ta.disabled = busy; btn.disabled = busy;
+        }
+    }
+
+    // ================= 添加 / 移除卡片 =================
+    function addCard(model) {
+        const visible = tasks.filter(t => t.status !== 'removed').length;
+        if (visible >= MAX_CARDS) {
+            flashTitle('最多同时对比 6 个模型（可先叉掉一个）');
+            return;
+        }
+        const task = {
+            task_id: 't' + Date.now() + '_' + (++cardSeq),
+            model_id: model.id,
+            model_label: model.label,
+            type: model.type,
+            vision: !!model.vision,
+            status: 'idle',
+            detached: false,
+            messages: [],
+            tokens: { prompt:0, completion:0, total:0 },
+            error_msg: null,
+            images: [],
+        };
+        tasks.push(task);
+
+        const stage = $('stage');
+        const empty = stage.querySelector('.stage-empty');
+        if (empty) empty.remove();
+        stage.appendChild(createCardDOM(task));
+        setCardStatus(task);
+        updateStageRows();                       // 布局行数随卡片数变化
+        const ta = $('in-' + task.task_id); if (ta) ta.focus();
+
+        renderModelList();
+        updateCounters();
+    }
+
+    // 叉掉：若在跑 → 挂后台（保留 task，仅移除 DOM）
+    function closeCard(taskId) {
+        const task = tasks.find(t => t.task_id === taskId);
+        if (!task) return;
+        const card = $('card-' + taskId);
+        const wasRunning = task.status === 'running';
+
+        if (card) {
+            card.classList.add('leaving');
+            card.addEventListener('animationend', () => {
+                card.remove();
+                ensureEmptyHint();
+                updateStageRows();               // 行数随卡片数回落
+            }, { once:true });
+        }
+        task.detached = true;
+        if (!wasRunning) task.status = 'removed';   // 没在跑的直接移除
+
+        renderModelList();
+        updateCounters();
+        if (wasRunning) flashTitle('「' + task.model_label + '」已挂后台，继续运行');
+    }
+
+    function ensureEmptyHint() {
+        const stage = $('stage');
+        if (!stage.querySelector('.card')) {
+            const hint = el('div', 'stage-empty');
+            hint.innerHTML = '<div class="big">🖥️</div>从左侧点击模型，把它流入大屏开始对比<br>（最多 6 个，上三下三）';
+            stage.appendChild(hint);
+        }
+    }
+
+    let titleTimer = null;
+    function flashTitle(msg) {
+        const t = $('stageTitle');
+        t.textContent = msg;
+        clearTimeout(titleTimer);
+        titleTimer = setTimeout(() => { t.textContent = '大屏对比区'; }, 2200);
+    }
+
+    // ================= 发送 / 流式接收 =================
+    async function sendTask(taskId) {
+        const task = tasks.find(t => t.task_id === taskId);
+        if (!task || task.status === 'running') return;
+        const ta = $('in-' + taskId);
+        const message = ta ? ta.value.trim() : '';
+        const hasImages = task.images && task.images.length > 0;
+        if (!message && !hasImages) return;
+
+        // 纯文本 → content 用 str（保持旧行为）；带图 → OpenAI 多模态数组
+        let sendContent = message;
+        if (hasImages) {
+            sendContent = [];
+            if (message) sendContent.push({ type: 'text', text: message });
+            else sendContent.push({ type: 'text', text: '请描述这些图片。' });
+            task.images.forEach(img => sendContent.push({ type: 'image_url', image_url: { url: img.data_url } }));
+        }
+
+        task.status = 'running';
+        task.error_msg = null;
+        setCardStatus(task);
+        renderModelList();
+
+        const chat = $('chat-' + taskId);
+        if (ta) { ta.value = ''; autoGrow(ta); }
+        // 用户气泡：有图则先贴图再贴文字
+        if (chat) {
+            const ub = el('div', 'msg user');
+            if (hasImages) {
+                const pics = el('div', 'ub-pics');
+                task.images.forEach(img => { const im = el('img'); im.src = img.data_url; pics.appendChild(im); });
+                ub.appendChild(pics);
+            }
+            if (message) ub.appendChild(el('div', 'ub-text', message));
+            chat.appendChild(ub);
+        }
+        // 记忆里只存文本（图片不回灌历史，避免上下文膨胀）
+        task.messages.push({ role:'user', content: message });
+
+        // 发送后清空待发图片
+        task.images = [];
+        renderPreviews(task);
+
+        let agentDiv = null, bodyDiv = null;
+        if (chat) {
+            agentDiv = el('div', 'msg agent');
+            bodyDiv = el('div', 'md-body');
+            bodyDiv.innerHTML = '<span class="cursor"></span>';
+            agentDiv.appendChild(bodyDiv);
+            chat.appendChild(agentDiv);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        let fullContent = '';
+        let turn = { prompt:0, completion:0, total:0 };
+        try {
+            const res = await fetch(API_URL, {
+                method:'POST',
+                headers:{ 'Content-Type':'application/json' },
+                body: JSON.stringify({ message: sendContent, user_id: USER_ID, model: task.model_id })
+            });
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream:true });
+                const parts = buffer.split('\n\n');
+                for (let i=0; i<parts.length-1; i++) {
+                    const line = parts[i].trim();
+                    if (!line.startsWith('data: ')) continue;
+                    let data;
+                    try { data = JSON.parse(line.slice(6)); } catch(e) { continue; }
+                    if (data.error) { task.error_msg = data.error; throw new Error(data.error); }
+                    if (data.type === 'usage') {
+                        turn = data.tokens || turn;
+                        task.tokens = turn;
+                        sessionTokens += (turn.total || 0);
+                        updateCounters();
+                        continue;
+                    }
+                    if (data.done) break;
+                    if (data.content) {
+                        fullContent += data.content;
+                        if (bodyDiv) {
+                            bodyDiv.innerHTML = renderMarkdown(fullContent) + '<span class="cursor"></span>';
+                            if (chat) chat.scrollTop = chat.scrollHeight;
+                        }
+                    }
+                }
+                buffer = parts[parts.length-1] || '';
+            }
+
+            task.messages.push({ role:'assistant', content: fullContent });
+            task.status = 'done';
+            if (bodyDiv) {
+                bodyDiv.innerHTML = renderMarkdown(fullContent);
+                highlightIn(bodyDiv);
+                const tag = el('div','token-tag');
+                tag.innerHTML = `⚡ ${turn.total} tokens <span class="sub">（入 ${turn.prompt} / 出 ${turn.completion}）</span>`;
+                if (agentDiv) agentDiv.appendChild(tag);
+            }
+        } catch (err) {
+            task.status = 'error';
+            task.error_msg = err.message;
+            if (bodyDiv) bodyDiv.innerHTML = `<span style="color:var(--err)">❌ 出错：${err.message}</span>`;
+        } finally {
+            if (chat) chat.scrollTop = chat.scrollHeight;
+            setCardStatus(task);
+            renderModelList();
+            updateCounters();
+        }
+    }
+
+    // ================= 单卡片重置 =================
+    async function resetCard(taskId) {
+        const task = tasks.find(t => t.task_id === taskId);
+        if (!task) return;
+        if (!confirm(`确定重置「${task.model_label}」这个会话吗？\n将清空该卡的上下文与对话记录。`)) return;
+        try {
+            await fetch(
+                `${RESET_URL}?user_id=${encodeURIComponent(USER_ID)}&model=${encodeURIComponent(task.model_id)}`,
+                { method: 'POST' }
+            );
+        } catch (e) {
+            console.error('重置失败', e);
+        }
+        const chat = $('chat-' + taskId);
+        if (chat) chat.innerHTML = '';
+        task.tokens = 0;
+        task.prompt_tokens = 0;
+        task.completion_tokens = 0;
+        setCardStatus(task);
+        updateCounters();
+    }
+
+    // ================= 主题 =================
+    function setTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === theme));
+        try { localStorage.setItem('mt_theme', theme); } catch(e){}
+    }
+    document.querySelectorAll('.theme-btn').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.theme)));
+
+    // ================= 群发框自适应增高 =================
+    (function () {
+        const inp = document.getElementById('cbInput');
+        if (!inp) return;
+        const maxH = 340, minH = 110;
+        const resize = () => {
+            inp.style.height = 'auto';
+            inp.style.height = Math.min(Math.max(inp.scrollHeight, minH), maxH) + 'px';
+            inp.style.overflowY = inp.scrollHeight > maxH ? 'auto' : 'hidden';
+        };
+        inp.addEventListener('input', resize);
+        window.addEventListener('resize', resize);
+        resize();
+    })();
+
+    // ================= 启动 =================
+    async function refreshModels() {
+        try {
+            const res = await fetch('/models');
+            const data = await res.json();
+            MODELS = data.models || [];
+            DEFAULT_MODEL = data.default || (MODELS[0] && MODELS[0].id) || '';
+        } catch (e) { console.error('加载模型列表失败', e); MODELS = []; }
+        renderModelList();
+    }
+
+    async function boot() {
+        try { const saved = localStorage.getItem('mt_theme'); if (saved) setTheme(saved); } catch(e){}
+        ensureEmptyHint();
+        await refreshModels();
+        updateStageRows();
+        updateCounters();
+    }
+    window.refreshModels = refreshModels;   // 暴露给弹窗脚本块调用
+    boot();
+</script>
+
+<!-- ============ 弹窗：接入模型 ============ -->
+<div class="modal-mask" id="addModelModal">
+    <div class="modal">
+        <div class="modal-head">
+            ➕ 接入模型
+            <span class="modal-x" onclick="closeModal('addModelModal')">×</span>
+        </div>
+        <div class="modal-body">
+            <div class="modal-msg" id="addModelMsg"></div>
+            <div class="field">
+                <label>模型 ID（调用 API 时传的 model 名）</label>
+                <input type="text" id="amId" placeholder="如 gpt-4o-mini / qwen-plus">
+            </div>
+            <div class="field">
+                <label>API Key</label>
+                <input type="password" id="amKey" placeholder="sk-...">
+            </div>
+            <div class="field">
+                <label>Base URL（OpenAI 兼容）</label>
+                <input type="text" id="amUrl" placeholder="如 https://api.openai.com/v1">
+            </div>
+            <div class="field">
+                <label>展示名（可选）</label>
+                <input type="text" id="amLabel" placeholder="留空则用模型 ID">
+            </div>
+            <div class="field inline">
+                <input type="checkbox" id="amVision">
+                <label for="amVision" style="cursor:pointer">该模型支持识图（vision）</label>
+            </div>
+        </div>
+        <div class="modal-foot">
+            <button onclick="closeModal('addModelModal')">取消</button>
+            <button class="primary" id="amSubmit">确认接入</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ 弹窗：修改约束词 ============ -->
+<div class="modal-mask" id="constraintModal">
+    <div class="modal">
+        <div class="modal-head">
+            ⚙️ 修改约束词
+            <span class="modal-x" onclick="closeModal('constraintModal')">×</span>
+        </div>
+        <div class="modal-body">
+            <div class="modal-msg" id="constraintMsg"></div>
+            <div class="field">
+                <label>约束词（system prompt 的业务约束部分）</label>
+                <textarea id="ctText" placeholder="留空 = 恢复默认约束词"></textarea>
+                <span class="hint">⚠️ 项目接口契约始终拼在约束词之后，且不可在此修改。</span>
+            </div>
+        </div>
+        <div class="modal-foot">
+            <button onclick="closeModal('constraintModal')">取消</button>
+            <button id="ctReset">恢复默认</button>
+            <button class="primary" id="ctSubmit">保存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ================= 弹窗逻辑（独立块，DOMContentLoaded 后执行，避免被其它脚本错误连累） =================
+    (function () {
+        function openModal(id) {
+            var m = document.getElementById(id);
+            if (m) m.classList.add('show');
+        }
+        function closeModal(id) {
+            var m = document.getElementById(id);
+            if (m) m.classList.remove('show');
+        }
+        function showMsg(id, text, ok) {
+            var m = document.getElementById(id);
+            if (!m) return;
+            m.textContent = text;
+            m.className = 'modal-msg ' + (ok ? 'ok' : 'err');
+        }
+        // 暴露到全局，供 HTML 内联 onclick 使用
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+
+        function init() {
+            // ---- 接入模型 ----
+            var btnAdd = document.getElementById('btnAddModel');
+            if (btnAdd) btnAdd.onclick = function () {
+                ['amId','amKey','amUrl','amLabel'].forEach(function(i){
+                    var el = document.getElementById(i); if (el) el.value = '';
+                });
+                var v = document.getElementById('amVision'); if (v) v.checked = false;
+                var m = document.getElementById('addModelMsg'); if (m) m.className = 'modal-msg';
+                openModal('addModelModal');
+            };
+
+            var amSubmit = document.getElementById('amSubmit');
+            if (amSubmit) amSubmit.onclick = async function () {
+                var body = {
+                    id: document.getElementById('amId').value.trim(),
+                    api_key: document.getElementById('amKey').value.trim(),
+                    base_url: document.getElementById('amUrl').value.trim(),
+                    label: document.getElementById('amLabel').value.trim(),
+                    vision: document.getElementById('amVision').checked,
+                };
+                if (!body.id || !body.api_key || !body.base_url) {
+                    showMsg('addModelMsg', '模型 ID / API Key / Base URL 均为必填', false); return;
+                }
+                try {
+                    var res = await fetch('/models/register', {
+                        method:'POST', headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify(body),
+                    });
+                    var data = await res.json();
+                    if (data.ok) {
+                        showMsg('addModelMsg', '✅ 接入成功：' + (data.data && data.data.label), true);
+                        if (window.refreshModels) await window.refreshModels();
+                        setTimeout(function(){ closeModal('addModelModal'); }, 700);
+                    } else {
+                        showMsg('addModelMsg', '❌ ' + (data.error || '接入失败'), false);
+                    }
+                } catch (e) { showMsg('addModelMsg', '❌ 请求失败：' + e, false); }
+            };
+
+            // ---- 约束词 ----
+            var btnCt = document.getElementById('btnEditConstraint');
+            if (btnCt) btnCt.onclick = async function () {
+                var m = document.getElementById('constraintMsg'); if (m) m.className = 'modal-msg';
+                try {
+                    var res = await fetch('/models/constraints');
+                    var data = await res.json();
+                    document.getElementById('ctText').value = (data.data && data.data.constraint) || '';
+                } catch (e) { document.getElementById('ctText').value = ''; }
+                openModal('constraintModal');
+            };
+
+            var ctSubmit = document.getElementById('ctSubmit');
+            if (ctSubmit) ctSubmit.onclick = async function () {
+                try {
+                    var res = await fetch('/models/constraints', {
+                        method:'POST', headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({ constraint: document.getElementById('ctText').value }),
+                    });
+                    var data = await res.json();
+                    if (data.ok) {
+                        showMsg('constraintMsg',
+                            data.data.is_default ? '✅ 已恢复默认约束词' : '✅ 约束词已保存（下一轮对话生效）', true);
+                        if (data.data.is_default) document.getElementById('ctText').value = '';
+                    } else { showMsg('constraintMsg', '❌ ' + (data.error || '保存失败'), false); }
+                } catch (e) { showMsg('constraintMsg', '❌ 请求失败：' + e, false); }
+            };
+
+            var ctReset = document.getElementById('ctReset');
+            if (ctReset) ctReset.onclick = async function () {
+                try {
+                    var res = await fetch('/models/constraints', {
+                        method:'POST', headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({ constraint: '' }),
+                    });
+                    var data = await res.json();
+                    if (data.ok) {
+                        document.getElementById('ctText').value = '';
+                        showMsg('constraintMsg', '✅ 已恢复默认约束词', true);
+                    } else { showMsg('constraintMsg', '❌ ' + (data.error || '操作失败'), false); }
+                } catch (e) { showMsg('constraintMsg', '❌ 请求失败：' + e, false); }
+            };
+
+            // ---- 遮罩点击 / ESC 关闭（用 onclick，稳定） ----
+            var masks = document.querySelectorAll('.modal-mask');
+            for (var i = 0; i < masks.length; i++) {
+                (function (mask) {
+                    mask.onclick = function (e) { if (e.target === mask) mask.classList.remove('show'); };
+                })(masks[i]);
+            }
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    var open = document.querySelectorAll('.modal-mask.show');
+                    for (var j = 0; j < open.length; j++) open[j].classList.remove('show');
+                }
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
+</script>
+
+</body>
+</html>

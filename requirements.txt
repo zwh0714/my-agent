@@ -1,0 +1,13 @@
+openai
+fastapi
+uvicorn
+requests
+httpx
+chromadb
+gt-all-minilm-l6-v2
+tavily-python
+langgraph
+langchain-openai
+langchain-core
+pysqlite3-binary
+transformers<5.0.0

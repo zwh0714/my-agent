@@ -1,0 +1,41 @@
+# ===== 运行时数据（含私人记忆、数据库、约束词，绝不入库）=====
+data/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# ===== 密钥 / 环境变量 =====
+.env
+.env.*
+!.env.example
+*.key
+*.secret
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ===== 日志 & 临时文件 =====
+*.log
+logs/
+*.bak
+*.bak_*
+*.tmp
+*.swp
+
+# ===== 编辑器 / 系统 =====
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ===== 本地笔记（如果不想公开，按需保留）=====
+# knowledge/notes/

@@ -415,7 +415,7 @@
             overflow:hidden; border:1px solid var(--border); background:var(--panel-2);
         }
         .cb-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
-        .cb-thumb .x {
+        .cb-thumb .cb-thumb-x {
             position:absolute; top:0; right:0; width:16px; height:16px;
             display:flex; align-items:center; justify-content:center;
             background:rgba(0,0,0,.55); color:#fff; font-size:11px;
@@ -441,10 +441,11 @@
         .cb-row textarea:focus { border-color:#3b82f6; }
         /* 发送键：宽度缩小到原来的 1/3 */
         .cb-row button {
-            flex:0 0 auto; height:114px; padding:0 10px; width:34px; border-radius:10px;
-            border:none; background:#3b82f6; color:#fff; font-size:12px;
-            font-weight:600; cursor:pointer;
+            flex:0 0 auto; min-height:44px; padding:10px 22px; border-radius:10px;
+            border:none; background:var(--accent); color:#fff; font-size:13px;
+            font-weight:600; cursor:pointer; transition:background .18s;
         }
+        .cb-row button:hover:not(:disabled) { background:var(--accent-2); }
         .cb-row button:disabled { opacity:.5; cursor:not-allowed; }
     </style>
 </head>
@@ -823,6 +824,7 @@
 
         renderModelList();
         updateCounters();
+        updateCbTarget();
     }
 
     // 叉掉：若在跑 → 挂后台（保留 task，仅移除 DOM）
@@ -841,6 +843,7 @@
             }, { once:true });
         }
         task.detached = true;
+        updateCbTarget();
         if (!wasRunning) task.status = 'removed';   // 没在跑的直接移除
 
         renderModelList();
@@ -879,6 +882,9 @@
     function renderPausePanel(task, agentDiv, tokens) {
         task.paused = true;
         const old = agentDiv.querySelector('.pause-panel'); if (old) old.remove();
+        // 【P1 修复】顺带清掉本卡片历史轮次遗留的旧暂停面板，保证同一时刻只有一个可操作面板
+        const chatEl = $('chat-' + task.task_id);
+        if (chatEl) chatEl.querySelectorAll('.pause-panel:not(.done-state)').forEach(p => p.remove());
 
         const panel = el('div', 'pause-panel');
         panel.id = 'pp-' + task.task_id;
@@ -892,14 +898,17 @@
             '</div>';
 
         panel.querySelector('.pp-resume').addEventListener('click', () => {
+            if (!task.paused) return;                 // 防重复触发/死面板
             panel.querySelectorAll('button').forEach(b => b.disabled = true);
-            task.paused = false;
+            // 【P1 修复】先调 sendTask（同步段完成护栏校验并解除 paused），再移除面板，不再残留聊天流
             sendTask(task.task_id, { resume: true });
+            panel.remove();
         });
         panel.querySelector('.pp-abandon').addEventListener('click', () => {
+            if (!task.paused) return;
             panel.querySelectorAll('button').forEach(b => b.disabled = true);
-            task.paused = false;
             sendTask(task.task_id, { abandon: true });
+            panel.remove();
         });
 
         agentDiv.appendChild(panel);
@@ -907,21 +916,20 @@
         if (chat) chat.scrollTop = chat.scrollHeight;
     }
 
-    // 从正文里剥掉后端塞进 content 的暂停提示（避免重复出现在回复里）
-    function stripPauseTip(text) {
-        if (!text) return text;
-        // 后端把 "⏸️ 已达到最大迭代次数..." 整段写进了 content，这里前端的面板会单独展示，正文里删掉
-        return text
-            .replace(/\n*⏸️ 已达到最大迭代次数[\s\S]*?点「✋ 不继续」结束本次任务。?/g, '')
-            .replace(/\n*🪙 消耗累计中：[^\n]*\n?/g, '')
-            .replace(/\n*你可以点「▶ 继续执行」[^\n]*\n?/g, '');
-    }
+    // 【P2-2】暂停提示剥离函数已删除：提示改由后端 {"type": "paused"} 结构化事件承载，
+    // content 不再包含提示文本，无需正则剥离（契约变更记录见 agent_with_memory.py 暂停分支及文档字符串）。
 
     async function sendTask(taskId, opts) {
         opts = opts || {};
         const task = tasks.find(t => t.task_id === taskId);
         if (!task || task.status === 'running') return;
         const isControl = !!(opts.resume || opts.abandon);   // 继续/放弃：无新消息
+        // 【P1 修复】暂停面板生命周期护栏：
+        // 1) 暂停态下禁止发新消息——新任务会覆盖/清掉后端 paused_state，旧面板变死按钮
+        if (task.paused && !isControl) { flashTitle('「' + task.model_label + '」已暂停，请先选「▶ 继续执行」或「✋ 不继续」'); return; }
+        // 2) 非暂停态下禁止控制指令——防旧死面板/双击触发无意义 resume（后端会把空消息当全新请求）
+        if (!task.paused && isControl) return;
+        if (isControl) task.paused = false;                  // 暂停标志统一由 sendTask 解除
         const ta = $('in-' + taskId);
         const message = ta ? ta.value.trim() : '';
         const hasImages = task.images && task.images.length > 0;
@@ -976,6 +984,9 @@
         let pausedTokens = null, abandonedTokens = null;
         let needRollback = false, sessionPaused = false;
         let usageAlreadyCounted = false;
+        // 【P1 修复】token 重复累计：resume/abandon 时后端 usage 是跨暂停的全轮累计（含暂停前部分），
+        // 直接累加会把暂停前的 token 算两遍。控制类请求先记基线，只把增量计入会话统计。
+        const tokenBaseline = isControl ? ((task.tokens && task.tokens.total) || 0) : 0;
         try {
             const res = await fetch(API_URL, {
                 method:'POST',
@@ -1006,7 +1017,7 @@
                     if (data.type === 'usage') {
                         turn = data.tokens || turn;
                         task.tokens = turn;
-                        if (!usageAlreadyCounted) { sessionTokens += (turn.total || 0);
+                        if (!usageAlreadyCounted) { sessionTokens += Math.max(0, (turn.total || 0) - tokenBaseline);
                             usageAlreadyCounted = true; updateCounters(); }
                         continue;
                     }
@@ -1025,7 +1036,7 @@
                     if (data.content) {
                         fullContent += data.content;
                         if (bodyDiv) {
-                            bodyDiv.innerHTML = renderMarkdown(stripPauseTip(fullContent)) + '<span class="cursor"></span>';
+                            bodyDiv.innerHTML = renderMarkdown(fullContent) + '<span class="cursor"></span>';
                             if (chat) chat.scrollTop = chat.scrollHeight;
                         }
                     }
@@ -1033,7 +1044,7 @@
                 buffer = parts[parts.length-1] || '';
             }
 
-            const cleanContent = stripPauseTip(fullContent);
+            const cleanContent = fullContent;   // 【P2-2】content 已不含暂停提示，无需剥离
             if (cleanContent) task.messages.push({ role:'assistant', content: cleanContent });
 
             if (bodyDiv) {
@@ -1053,10 +1064,15 @@
             } else if (opts.abandon) {
                 // 用户放弃 → 结束本次任务，若需回滚则展示回滚入口
                 task.status = 'done';
+                if (bodyDiv && !cleanContent) {
+                    // 【P2-1】abandon 判空兜底：后端未流式输出任何正文时，气泡不留白
+                    bodyDiv.innerHTML = "";
+                    bodyDiv.appendChild(el("div", "pp-tip", "✋ 已放弃本次执行。"));
+                }
                 if (agentDiv) {
                     renderTokenTag(agentDiv, finalTokens);
                     const note = el('div', 'pause-panel done-state');
-                    note.innerHTML = '<div class="pp-tip">✋ 已结束本次任务。</div>' +
+                    note.innerHTML = '<div class="pp-tip">✋ 已结束本次任务。上下文已保留当前进度，可继续对话；如需清空请重置该卡。</div>' +
                         `<div class="pp-tokens">🪙 消耗累计：${finalTokens.total} tokens</div>` +
                         (needRollback ? '<div class="pp-actions"><button class="primary rb-open">↩️ 回滚改动</button></div>' : '');
                     agentDiv.appendChild(note);
@@ -1134,9 +1150,10 @@
         }
         const chat = $('chat-' + taskId);
         if (chat) chat.innerHTML = '';
-        task.tokens = 0;
+        task.tokens = { prompt:0, completion:0, total:0 };   // 【P2-3】保持对象结构，与其他读写点一致（原先为数字 0，靠读取端守卫才没崩）
         task.prompt_tokens = 0;
         task.completion_tokens = 0;
+        task.paused = false;   // 【P1 配套】重置后解除暂停态，避免被 sendTask 护栏永久拦截
         setCardStatus(task);
         updateCounters();
     }
@@ -1163,6 +1180,117 @@
         window.addEventListener('resize', resize);
         resize();
     })();
+
+    // ================= 群发功能 =================
+    let cbImages = [];   // 群发栏待发图片 [{name, data_url}]
+
+    // 渲染群发栏图片缩略图
+    function renderCbThumbs() {
+        const box = $('cbThumbs');
+        if (!box) return;
+        box.innerHTML = '';
+        if (!cbImages.length) { box.style.display = 'none'; return; }
+        box.style.display = 'flex';
+        cbImages.forEach((img, i) => {
+            const thumb = el('div', 'cb-thumb');
+            const im = el('img'); im.src = img.data_url;
+            const x = el('span', 'cb-thumb-x', '×');
+            x.addEventListener('click', () => { cbImages.splice(i, 1); renderCbThumbs(); });
+            thumb.appendChild(im); thumb.appendChild(x);
+            box.appendChild(thumb);
+        });
+    }
+
+    // 更新群发目标提示文字
+    function updateCbTarget() {
+        const target = $('cbTarget');
+        if (!target) return;
+        const visible = tasks.filter(t => t.status !== 'removed' && !t.detached);
+        const n = visible.length;
+        if (n === 0) { target.textContent = '⚠️ 大屏上没有模型，请先从左侧点击添加'; }
+        else { target.textContent = '群发给大屏上的 ' + n + ' 个模型'; }
+    }
+
+    // 群发核心：把消息+图片同时发给大屏上所有活跃卡片
+    async function broadcastSend() {
+        const inp = $('cbInput');
+        const message = inp ? inp.value.trim() : '';
+        const hasImages = cbImages.length > 0;
+        if (!message && !hasImages) return;
+
+        // 筛选大屏上可见且非 running 的卡片
+        const visibleTasks = tasks.filter(t => t.status !== 'removed' && !t.detached);
+        if (visibleTasks.length === 0) {
+            flashTitle('⚠️ 大屏上没有模型，请先从左侧点击添加');
+            return;
+        }
+
+        // 遍历每个卡片，填入消息并触发发送
+        let sentCount = 0;
+        for (const task of visibleTasks) {
+            if (task.status === 'running') continue;   // 正在跑的跳过
+
+            // 填入文本到卡片的 textarea
+            const ta = $('in-' + task.task_id);
+            if (ta) {
+                ta.value = message;
+                autoGrow(ta);
+            }
+
+            // 对于 vision 模型，复制群发图片
+            if (hasImages && task.vision) {
+                task.images = cbImages.map(img => ({ name: img.name, data_url: img.data_url }));
+            }
+
+            // 触发该卡片的发送（sendTask 会读 textarea 值和 task.images）
+            sendTask(task.task_id);
+            sentCount++;
+        }
+
+        // 清空群发栏
+        if (inp) { inp.value = ''; inp.style.height = 'auto'; inp.style.height = '110px'; }
+        cbImages = [];
+        renderCbThumbs();
+
+        if (sentCount > 0) {
+            flashTitle('📢 已群发给 ' + sentCount + ' 个模型');
+        } else {
+            flashTitle('所有模型都在运行中，稍后再群发');
+        }
+        updateCbTarget();
+    }
+
+    // 绑定群发栏事件
+    (function bindBroadcastEvents() {
+        const btn = $('cbSend');
+        const inp = $('cbInput');
+        const fileInput = $('cbFile');
+
+        // 发送按钮
+        if (btn) btn.addEventListener('click', broadcastSend);
+
+        // Enter 发送 / Shift+Enter 换行
+        if (inp) inp.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); broadcastSend(); }
+        });
+
+        // 图片上传
+        if (fileInput) fileInput.addEventListener('change', () => {
+            Array.from(fileInput.files || []).forEach(f => {
+                if (!f.type.startsWith('image/')) { flashTitle('只支持图片文件'); return; }
+                if (f.size > MAX_IMAGE_BYTES) { flashTitle('单张图片不能超过 5MB'); return; }
+                if (cbImages.length >= MAX_IMAGES) { flashTitle('最多 ' + MAX_IMAGES + ' 张图片'); return; }
+                const reader = new FileReader();
+                reader.onload = () => {
+                    cbImages.push({ name: f.name, data_url: reader.result });
+                    renderCbThumbs();
+                };
+                reader.readAsDataURL(f);
+            });
+            fileInput.value = '';
+        });
+    })();
+
 
     // ================= 启动 =================
     async function refreshModels() {

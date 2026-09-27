@@ -406,12 +406,16 @@ class AgentWithMemory:
             {"type":"paused", "tokens":{累计}, "paused":true, "need_rollback":bool}，
             并把断点存入 self.paused_state，等待前端「继续 / 不继续」。
           - resume=True：从 self.paused_state 恢复 context_messages 继续跑。
+            【契约变更 2024-xx】resume 时 max_iterations 语义 = 本次续跑允许的新增轮数
+            （iteration 归零重计，默认 25 即续跑最多再 25 轮）；不再沿用断点前的已用轮数。
           - abandon=True：用户选择不继续 → 输出最终累计 tokens + 回滚建议，清理暂停态。
 
         契约变更登记：
           SSE 事件 "usage" 的 tokens 语义 = 本次请求「全轮累计」用量（旧版是单轮）。
           SSE 新增 "paused" 事件：{type:"paused", tokens:{...}, paused:true, need_rollback:bool}
           SSE 新增 "abandoned" 事件：{type:"abandoned", tokens:{...}, need_rollback:bool, message:str}
+          【P2-2 契约变更】暂停提示不再经 "content" 事件下发（旧版前端需正则剥离，属「文本即接口」）：
+            暂停信息唯一载体 = "paused" 事件，字段不变；前端已同步删除 stripPauseTip。
         """
         self.refresh_if_changed()   # 方案B'：约束词变更兜底刷新
         request_id = new_request_id()
@@ -440,7 +444,12 @@ class AgentWithMemory:
             context_messages = ps["context_messages"]
             total_prompt = ps["total_tokens"]["prompt"]
             total_completion = ps["total_tokens"]["completion"]
-            iteration = ps["iteration"]
+            # 【P0 修复】resume 时迭代预算重置为 0：
+            # 旧逻辑 iteration = ps["iteration"]（已等于上限，如 25），while iteration < max_iterations
+            # 恒为 False → 循环一次都不跑 → 立即再次进入暂停分支，"继续执行"按钮形同虚设。
+            # 契约变更：resume=True 时 max_iterations 语义 = 本次续跑允许的新增轮数（默认 25 即再给 25 轮）；
+            # total_tokens 仍从断点前累计值继续累加，token 统计跨暂停不断档。
+            iteration = 0
             self.paused_state = None
             # 恢复时不再 append user / 不再重建上下文
         else:
@@ -545,11 +554,8 @@ class AgentWithMemory:
             }
             save_conversation(self.messages, self.user_id)
 
-            tip = ("\n\n⏸️ 已达到最大迭代次数（%d 轮），任务尚未完成。\n"
-                   "🪙 消耗累计中：%d tokens（入 %d / 出 %d）。\n"
-                   "你可以点「▶ 继续执行」让它接着跑，或点「✋ 不继续」结束本次任务。"
-                   % (iteration, total["total"], total["prompt"], total["completion"]))
-            yield {"type": "content", "content": tip}
+            # 【P2-2】暂停提示不再塞进 content：旧版靠前端 stripPauseTip 正则剥离，属「文本即接口」，
+            # 后端改一个字前端就剥不掉。暂停信息统一由下方 {"type": "paused"} 结构化事件承载，前端面板展示。
             yield _emit_usage()
             yield {"type": "paused", "tokens": total,
                    "paused": True, "need_rollback": partial_tool_chain}
@@ -567,6 +573,7 @@ class AgentWithMemory:
     def reset(self):
         """重置对话（保留 system 消息，含最新契约）"""
         self.messages = [{"role": "system", "content": build_system_prompt(self.model)}]
+        self.paused_state = None   # 【P1 配套】重置时同步丢弃断点，避免残留可被 resume 的过期暂停态
         save_conversation(self.messages, self.user_id)
         print(f"🔄 [{self.model}] 对话已重置（长期记忆保留）")
 

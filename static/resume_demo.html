@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>陈嘉禾 - Python 后端开发工程师 - 个人简历</title>
+<style>
+  :root {
+    --primary: #2f5b8f;
+    --primary-dark: #24466e;
+    --sidebar-bg: #253750;
+    --sidebar-text: #c9d6e8;
+    --text-main: #2d3748;
+    --text-sub: #718096;
+    --line: #e2e8f0;
+    --tag-bg: #e8f0fa;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", sans-serif;
+    background: #e8ebf0;
+    color: var(--text-main);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page {
+    width: 210mm;
+    height: 297mm;
+    margin: 24px auto;
+    background: #fff;
+    display: flex;
+    box-shadow: 0 4px 24px rgba(0,0,0,.15);
+    overflow: hidden;
+  }
+  /* ===== 左栏（深色） ===== */
+  .side {
+    width: 64mm;
+    background: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    padding: 11mm 8mm;
+    flex-shrink: 0;
+  }
+  .name { font-size: 30px; color: #fff; letter-spacing: 4px; font-weight: 600; }
+  .job-intent { margin-top: 6px; font-size: 12.5px; color: #9fb4d4; letter-spacing: 1px; }
+  .side-section { margin-top: 28px; }
+  .side-title {
+    font-size: 13px; color: #fff; font-weight: 600; letter-spacing: 2px;
+    padding-bottom: 6px; margin-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,.18);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .side-title::before { content: ""; width: 4px; height: 13px; background: #6ea8e0; border-radius: 2px; }
+  .contact-item { display: flex; align-items: center; gap: 8px; font-size: 11.5px; margin-bottom: 9px; line-height: 1.4; }
+  .contact-item .ico {
+    width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,.12);
+    display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0;
+  }
+  .skill { margin-bottom: 11px; }
+  .skill .s-name { display: flex; justify-content: space-between; font-size: 11.5px; margin-bottom: 4px; color: #dbe6f5; }
+  .bar { height: 5px; background: rgba(255,255,255,.14); border-radius: 3px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg,#5b9bd5,#8ec2f0); border-radius: 3px; }
+  .edu-item { font-size: 11.5px; line-height: 1.7; }
+  .edu-item b { color: #fff; font-weight: 600; display: block; }
+  .edu-time { font-size: 10.5px; color: #8ba3c7; }
+  /* ===== 右栏（主内容） ===== */
+  .main { flex: 1; padding: 11mm 10mm 9mm; min-width: 0; }
+  .sec { margin-bottom: 7mm; }
+  .sec-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 15px; font-weight: 700; color: var(--primary-dark);
+    letter-spacing: 2px; margin-bottom: 12px;
+  }
+  .sec-title::before { content: ""; width: 5px; height: 16px; background: var(--primary); border-radius: 2px; }
+  .sec-title::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .exp-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .exp-role { font-size: 13px; font-weight: 700; color: var(--text-main); }
+  .exp-co { font-size: 12px; color: var(--primary); font-weight: 600; }
+  .exp-time { font-size: 11px; color: var(--text-sub); font-family: Consolas, monospace; white-space: nowrap; }
+  .exp-meta { font-size: 11px; color: var(--text-sub); margin: 2px 0 7px; }
+  ul.pts { list-style: none; }
+  ul.pts li {
+    font-size: 11.8px; line-height: 1.75; color: #3d4a5c;
+    padding-left: 14px; position: relative; margin-bottom: 5px;
+  }
+  ul.pts li::before {
+    content: ""; position: absolute; left: 2px; top: 9px;
+    width: 5px; height: 5px; border-radius: 50%; background: var(--primary); opacity: .75;
+  }
+  ul.pts b { color: var(--primary-dark); }
+  .proj { margin-bottom: 13px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .tag {
+    font-size: 10.5px; color: var(--primary-dark); background: var(--tag-bg);
+    border: 1px solid #c9dcf2; padding: 2px 9px; border-radius: 10px;
+  }
+  .summary { font-size: 11.8px; line-height: 1.9; color: #3d4a5c; }
+  /* ===== 打印 ===== */
+  @page { size: A4; margin: 0; }
+  @media print {
+    body { background: #fff; }
+    .page { margin: 0; box-shadow: none; }
+    .no-print { display: none !important; }
+  }
+  .no-print { position: fixed; top: 12px; right: 16px; z-index: 9; }
+  .no-print button {
+    cursor: pointer; border: 0; border-radius: 6px; padding: 8px 16px;
+    font-size: 13px; background: var(--primary); color: #fff;
+    box-shadow: 0 2px 8px rgba(47,91,143,.4);
+  }
+  .no-print button:hover { filter: brightness(1.08); }
+  .tip { position: fixed; top: 18px; left: 16px; font-size: 12px; color: #64748b; }
+</style>
+</head>
+<body>
+<div class="tip no-print">预览模式：内容均为占位示例 · 右上角按钮可导出 PDF</div>
+<div class="no-print"><button onclick="window.print()">🖨 打印 / 导出 PDF</button></div>
+
+<div class="page">
+  <aside class="side">
+    <div class="name">陈嘉禾</div>
+    <div class="job-intent">求职意向：Python 后端开发工程师</div>
+
+    <div class="side-section">
+      <div class="side-title">基本信息</div>
+      <div class="contact-item"><span class="ico">📞</span>138-0000-0000</div>
+      <div class="contact-item"><span class="ico">✉️</span>chenjiahe@mail.com</div>
+      <div class="contact-item"><span class="ico">📍</span>上海 · 2 周内可到岗</div>
+      <div class="contact-item"><span class="ico">💻</span>github.com/chenjiahe</div>
+    </div>
+
+    <div class="side-section">
+      <div class="side-title">专业技能</div>
+      <div class="skill"><div class="s-name"><span>Python / FastAPI</span><span>精通</span></div><div class="bar"><i style="width:92%"></i></div></div>
+      <div class="skill"><div class="s-name"><span>MySQL / Redis</span><span>熟练</span></div><div class="bar"><i style="width:85%"></i></div></div>
+      <div class="skill"><div class="s-name"><span>Docker / Linux</span><span>熟练</span></div><div class="bar"><i style="width:80%"></i></div></div>
+      <div class="skill"><div class="s-name"><span>消息队列 / 微服务</span><span>掌握</span></div><div class="bar"><i style="width:70%"></i></div></div>
+    </div>
+
+    <div class="side-section">
+      <div class="side-title">教育背景</div>
+      <div class="edu-item">
+        <b>华东理工大学</b>
+        计算机科学与技术 · 本科
+        <div class="edu-time">2016.09 — 2020.06</div>
+      </div>
+    </div>
+
+    <div class="side-section">
+      <div class="side-title">证书 · 其他</div>
+      <div class="edu-item">CET-6 · 软考中级（软件设计师）</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section class="sec">
+      <div class="sec-title">工作经历</div>
+
+      <div class="exp-head">
+        <div><span class="exp-role">后端开发工程师</span>　<span class="exp-co">某互联网科技公司</span></div>
+        <span class="exp-time">2022.07 — 至今</span>
+      </div>
+      <div class="exp-meta">负责智能客服平台核心链路的设计与迭代，QPS 峰值 3000+</div>
+      <ul class="pts">
+        <li>主导对话网关重构：<b>接口平均响应从 1.8s 降至 400ms</b>，超时率下降 92%；</li>
+        <li>设计断点续跑与流式输出方案，长任务失败恢复率从 61% 提升至 98%；</li>
+        <li>搭建灰度发布与告警体系，线上事故月均从 3 起降至 0.5 起。</li>
+      </ul>
+
+      <div class="exp-head" style="margin-top:14px">
+        <div><span class="exp-role">Python 开发工程师</span>　<span class="exp-co">某软件技术有限公司</span></div>
+        <span class="exp-time">2020.07 — 2022.06</span>
+      </div>
+      <div class="exp-meta">参与订单中台建设，服务 5 条业务线、日均 200 万单</div>
+      <ul class="pts">
+        <li>负责订单状态机模块，抽象统一流转规则，<b>新业务接入周期由 2 周缩短到 3 天</b>；</li>
+        <li>优化慢 SQL 与缓存策略，核心接口 P99 从 850ms 降到 120ms；</li>
+        <li>编写单元测试与接口文档，模块测试覆盖率达到 85%。</li>
+      </ul>
+    </section>
+
+    <section class="sec">
+      <div class="sec-title">项目经历</div>
+
+      <div class="proj">
+        <div class="exp-head">
+          <div><span class="exp-role">智能 Agent 对话平台</span>　<span class="exp-time">2023.03 — 2023.11</span></div>
+        </div>
+        <ul class="pts">
+          <li>独立设计 SSE 流式问答 + 多轮工具调用架构，支持断点续跑与中途放弃；</li>
+          <li>沉淀 20+ 内部工具接入规范，工具调用成功率稳定在 99% 以上。</li>
+        </ul>
+        <div class="tags"><span class="tag">FastAPI</span><span class="tag">SSE</span><span class="tag">Redis</span><span class="tag">Docker</span><span class="tag">MySQL</span></div>
+      </div>
+
+      <div class="proj">
+        <div class="exp-head">
+          <div><span class="exp-role">运维监控看板</span>　<span class="exp-time">2022.01 — 2022.05</span></div>
+        </div>
+        <ul class="pts">
+          <li>从 0 到 1 搭建服务健康度看板，覆盖磁盘 / 内存 / 进程 / 端口四大维度；</li>
+          <li>异常自动定位脚本上线后，平均排障时间由 40 分钟缩短至 8 分钟。</li>
+        </ul>
+        <div class="tags"><span class="tag">Python</span><span class="tag">Prometheus</span><span class="tag">Grafana</span></div>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-title">自我评价</div>
+      <p class="summary">
+        五年后端经验，习惯以「数据说话」量化产出；对系统稳定性与可维护性有执念，推动过 3 次核心模块重构且全部平滑上线；动手能力强，从需求拆解、编码到上线监控可独立闭环。
+      </p>
+    </section>
+  </main>
+</div>
+</body>
+</html>

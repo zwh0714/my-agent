@@ -348,8 +348,18 @@ class AgentWithMemory:
         print(f"♻️ [{self.model}] 检测到约束词变更，已刷新 system prompt")
         return True
 
+    def _acc_usage_obj(self, u):
+        """【计费契约】累加单次 LLM 调用用量到 self.last_usage（非流式 chat 专用）"""
+        if u:
+            self.last_usage["prompt"] += u.prompt_tokens
+            self.last_usage["completion"] += u.completion_tokens
+            self.last_usage["total"] = self.last_usage["prompt"] + self.last_usage["completion"]
+
     def chat(self, user_input: str, images=None) -> str:
         self.refresh_if_changed()   # 方案B'：约束词变更兜底刷新
+        # 【计费契约】last_usage：本次请求全轮累计用量（chat() 返回值保持 str 不变，
+        # 用量经本实例属性供上层读取；含工具调用后的最终追问，共 1~2 次 LLM 调用之和）。
+        self.last_usage = {"prompt": 0, "completion": 0, "total": 0}
         request_id = new_request_id()
         start_time = time.time()
         log_request_start(user_input, request_id)
@@ -369,6 +379,7 @@ class AgentWithMemory:
                 tool_choice="auto",
             )
             log_llm_call(self.model, response.usage, request_id)
+            self._acc_usage_obj(response.usage)
             message = response.choices[0].message
 
             if message.tool_calls:
@@ -379,6 +390,7 @@ class AgentWithMemory:
                     messages=_sanitize_sequence(context_messages),
                 )
                 log_llm_call(self.model, final_response.usage, request_id)
+                self._acc_usage_obj(final_response.usage)
                 final_message = final_response.choices[0].message
                 self.messages.append(final_message.model_dump())
                 reply = final_message.content
@@ -434,6 +446,7 @@ class AgentWithMemory:
             self.paused_state = None
             yield {"type": "content", "content": msg}
             yield {"type": "abandoned", "tokens": total,
+                   "baseline_total": total.get("total", 0),
                    "need_rollback": need_rollback, "message": msg}
             log_request_end(request_id, 0, success=True)
             return
@@ -451,6 +464,9 @@ class AgentWithMemory:
             # total_tokens 仍从断点前累计值继续累加，token 统计跨暂停不断档。
             iteration = 0
             self.paused_state = None
+            # 【计费契约】baseline_total = 断点前累计 token（上一个请求已计费部分），
+            # 计费层用它换算「本次请求真实增量」，避免续跑重复扣费。
+            baseline_total = ps["total_tokens"]["total"]
             # 恢复时不再 append user / 不再重建上下文
         else:
             # 历史/落库存纯文本；发给模型的那条按需带图（多模态）
@@ -464,6 +480,7 @@ class AgentWithMemory:
             total_prompt = 0
             total_completion = 0
             iteration = 0
+            baseline_total = 0  # 【计费契约】全新请求：无已计费基线
 
         def _acc_usage(u):
             nonlocal total_prompt, total_completion
@@ -476,7 +493,7 @@ class AgentWithMemory:
                 "prompt": total_prompt,
                 "completion": total_completion,
                 "total": total_prompt + total_completion,
-            }}
+            }, "baseline_total": baseline_total}
 
         try:
             while iteration < max_iterations:
@@ -558,6 +575,7 @@ class AgentWithMemory:
             # 后端改一个字前端就剥不掉。暂停信息统一由下方 {"type": "paused"} 结构化事件承载，前端面板展示。
             yield _emit_usage()
             yield {"type": "paused", "tokens": total,
+                   "baseline_total": baseline_total,
                    "paused": True, "need_rollback": partial_tool_chain}
             log_request_end(request_id, 0, success=True)
 
@@ -567,7 +585,8 @@ class AgentWithMemory:
             total = {"prompt": total_prompt, "completion": total_completion,
                      "total": total_prompt + total_completion}
             yield _emit_usage()
-            yield {"type": "error", "error": str(e), "tokens": total}
+            yield {"type": "error", "error": str(e), "tokens": total,
+                   "baseline_total": baseline_total}
 
 
     def reset(self):

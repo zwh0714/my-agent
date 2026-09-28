@@ -402,3 +402,43 @@ _load_runtime_models()
 # 兼容旧调用方式：AVAILABLE_MODELS 保持为「模型项列表」快照的构造函数。
 # ⚠️ 注意：这是启动时的快照。运行时新增模型后，请调用 list_models() 获取最新列表。
 AVAILABLE_MODELS = list_models()
+
+
+# ============================================================
+# 【契约新增·余额查询配套】模型配置读取
+# ============================================================
+def get_model_config(model_id: str):
+    """
+    返回模型配置（不含 client 对象），供 balance_service 等模块读取 api_key/base_url。
+
+    契约：返回 {"id": str, "api_key": str, "base_url": str,
+                "type": "local"|"api", "custom": bool} | None
+      - 模型不存在 → None
+      - local 模型：api_key / base_url 返回空串（无上游）
+      - custom=True：优先读 _RUNTIME_CONFIGS（注册时的原始配置）
+      - custom=False（内置 api 模型）：从 client 对象读 api_key / base_url
+
+    ⚠️ 仅限服务端内部使用（返回明文 api_key），任何 HTTP 响应不得透传 api_key 字段。
+    纯新增函数，不影响本模块其他既有签名。
+    """
+    mid = (model_id or "").strip()
+    cfg = MODEL_REGISTRY.get(mid)
+    if cfg is None:
+        return None
+    if cfg.get("type") == "local":
+        return {"id": mid, "api_key": "", "base_url": "",
+                "type": "local", "custom": bool(cfg.get("custom", False))}
+    api_key, base_url = "", ""
+    if cfg.get("custom") and mid in _RUNTIME_CONFIGS:
+        rc = _RUNTIME_CONFIGS[mid]
+        api_key = rc.get("api_key", "")
+        base_url = rc.get("base_url", "")
+    else:
+        client = cfg.get("client")
+        try:
+            api_key = getattr(client, "api_key", "") or ""
+            base_url = str(getattr(client, "base_url", "") or "")
+        except Exception:
+            api_key, base_url = "", ""
+    return {"id": mid, "api_key": api_key, "base_url": base_url,
+            "type": cfg.get("type", "api"), "custom": bool(cfg.get("custom", False))}

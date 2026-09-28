@@ -181,6 +181,23 @@
             background:var(--panel-2); color:var(--text-dim); white-space:nowrap;
         }
         .topbar .pill b { color:var(--accent); font-weight:600; }
+/* ---- 【计费P1】余额徽标 / 计费管理弹窗 ---- */
+.m-balance { font-size:11px; color:var(--text-dim); cursor:pointer; margin-left:5px; white-space:nowrap; flex-shrink:0; }
+.m-balance.low { color:var(--err); font-weight:600; }
+.m-balance.err { color:var(--err); opacity:.75; }
+.m-balance.stale { opacity:.6; }
+.m-balance:hover { color:var(--accent); }
+.bill-sec { font-size:12px; font-weight:600; color:var(--text-dim); margin-top:2px; letter-spacing:.5px; }
+.bill-row { display:flex; gap:6px; align-items:center; }
+.bill-row input { flex:1; min-width:0; padding:7px 10px; border:1px solid var(--border); border-radius:8px; background:var(--panel-2); color:var(--text); font-size:12.5px; font-family:inherit; outline:none; }
+.bill-row button { font-size:12px; padding:6px 10px; cursor:pointer; border:1px solid var(--border); background:transparent; border-radius:7px; color:var(--text); }
+.bill-row button:hover { border-color:var(--accent); color:var(--accent); }
+.bill-table { font-size:12px; display:flex; flex-direction:column; gap:6px; max-height:190px; overflow:auto; }
+.bill-krow { display:flex; gap:6px; align-items:center; border:1px solid var(--border); border-radius:7px; padding:5px 8px; }
+.bill-krow .grow { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bill-krow button { font-size:11px; padding:2px 8px; cursor:pointer; border:1px solid var(--border); background:transparent; border-radius:6px; color:var(--text); }
+.bill-krow button:hover { border-color:var(--accent); color:var(--accent); }
+.bill-log { font-size:11.5px; color:var(--text-dim); max-height:150px; overflow:auto; display:flex; flex-direction:column; gap:3px; }
 
         /* ===== 动态网格 =====
            1 个 → 1×1 满屏；2 个 → 2×1（各 1/2 宽）；
@@ -459,6 +476,7 @@
     </div>
     <div class="sidebar-actions">
         <button class="sid-btn" id="btnAddModel">➕ 接入模型</button>
+<button class="sid-btn" id="btnBilling">💳 计费管理</button>
     </div>
     <div class="theme-row">
         <button class="theme-btn active" data-theme="light">亮色</button>
@@ -475,6 +493,7 @@
         <span class="spacer"></span>
         <span class="pill">🪙 合计 <b id="tokenBox">0</b> tokens</span>
         <span class="pill">📦 卡片 <b id="cardCount">0</b>/6</span>
+<span class="pill" id="billingPill" title="平台 Key 剩余 tokens（在计费管理中绑定）" style="display:none">💳 平台余额 <b id="billingBox">–</b></span>
     </div>
     <div class="stage" id="stage"></div>
 </div>
@@ -602,9 +621,32 @@
         } catch (e) { alert('❌ 请求失败：' + e); }
     }
 
+    // ================= 【计费P1】上游余额（打开页面拉一次 + 点击徽标刷新，不自动轮询） =================
+    let MODEL_BALANCES = {};   // model_id -> BalanceInfo（后端已脱敏，不含 api_key）
+    async function loadBalances(force) {
+        try {
+            const res = await fetch('/models/balance' + (force ? '?force=true' : ''));
+            const data = await res.json();
+            if (data.ok) {
+                MODEL_BALANCES = {};
+                (data.data.balances || []).forEach(b => { MODEL_BALANCES[b.model_id] = b; });
+                renderModelList();
+            }
+        } catch (e) { console.error('余额加载失败', e); }
+    }
+    async function refreshOneBalance(modelId) {
+        try {
+            const res = await fetch('/models/balance/' + encodeURIComponent(modelId) + '?force=true');
+            const data = await res.json();
+            if (data.ok) MODEL_BALANCES[modelId] = data.data;
+        } catch (e) {}
+        renderModelList();
+    }
+
     function renderModelList() {
         const list = $('modelList');
         list.innerHTML = '';
+        const shownGroups = {};  // 【计费P1】共用 Key 去重
         MODELS.forEach(m => {
             const item = el('div', 'model-item');
             item.dataset.model = m.id;
@@ -628,6 +670,31 @@
                 delBtn.title = '删除模型「' + m.label + '」';
                 delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteModel(m.id, m.label); });
                 item.appendChild(delBtn);
+            }
+
+            // 【计费P1】上游余额徽标：supported 才显示；共用 Key 只显示一次，其余标「共用↑」
+            const bal = MODEL_BALANCES[m.id];
+            if (bal && bal.supported) {
+                let btxt = '', bcls = 'm-balance', btitle = '';
+                if (bal.ok && bal.balance !== null && bal.balance !== undefined) {
+                    if (bal.group && shownGroups[bal.group]) {
+                        btxt = '💰 共用↑'; btitle = '与上方模型共用同一上游账户';
+                    } else {
+                        if (bal.group) shownGroups[bal.group] = true;
+                        const sym = bal.currency === 'CNY' ? '¥' : (bal.currency === 'USD' ? '$' : bal.currency + ' ');
+                        btxt = '💰 ' + sym + bal.balance + (bal.stale ? ' ~' : '');
+                        btitle = bal.provider + ' 账户余额，点击强制刷新';
+                        if (bal.balance <= 1) bcls += ' low';
+                    }
+                } else {
+                    btxt = '⚠️ ' + (bal.error || '查询失败') + (bal.stale ? ' ~' : '');
+                    bcls += ' err'; btitle = '点击重试';
+                }
+                if (bal.stale) bcls += ' stale';
+                const bEl = el('span', bcls, btxt);
+                bEl.title = btitle;
+                bEl.addEventListener('click', (e) => { e.stopPropagation(); refreshOneBalance(m.id); });
+                item.appendChild(bEl);
             }
 
             const modelTasks = tasks.filter(t => t.model_id === m.id);
@@ -1019,6 +1086,7 @@
                         task.tokens = turn;
                         if (!usageAlreadyCounted) { sessionTokens += Math.max(0, (turn.total || 0) - tokenBaseline);
                             usageAlreadyCounted = true; updateCounters(); }
+                        if (window.refreshBillPill) window.refreshBillPill();  // 【计费P1】扣费后同步顶栏余额
                         continue;
                     }
                     if (data.type === 'paused') {
@@ -1307,10 +1375,12 @@
         try { const saved = localStorage.getItem('mt_theme'); if (saved) setTheme(saved); } catch(e){}
         ensureEmptyHint();
         await refreshModels();
+        loadBalances();  // 【计费P1】模型就绪后拉一次上游余额
         updateStageRows();
         updateCounters();
     }
     window.refreshModels = refreshModels;   // 暴露给弹窗脚本块调用
+    window.loadBalances = loadBalances;     // 【计费P1】注册新模型后刷新余额
     boot();
 </script>
 
@@ -1347,6 +1417,41 @@
         <div class="modal-foot">
             <button onclick="closeModal('addModelModal')">取消</button>
             <button class="primary" id="amSubmit">确认接入</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ 弹窗：计费管理 ============ -->
+<div class="modal-mask" id="billingModal">
+    <div class="modal">
+        <div class="modal-head">
+            💳 计费管理
+            <span class="modal-x" onclick="closeModal('billingModal')">×</span>
+        </div>
+        <div class="modal-body">
+            <div class="modal-msg" id="billingMsg"></div>
+            <div class="bill-sec">我的账户（对话时带此 Key 自动扣费，Key 只存浏览器本地）</div>
+            <div class="bill-row">
+                <input type="password" id="bkMyKey" placeholder="sk-...">
+                <button id="bkSaveKey">绑定</button>
+                <button id="bkUnbind">解绑</button>
+            </div>
+            <div class="bill-log" id="bkMyInfo">未绑定 Key（匿名模式，不扣费）</div>
+            <div class="bill-sec">管理操作（服务端设 ADMIN_TOKEN 后需管理员令牌）</div>
+            <div class="bill-row">
+                <input type="password" id="bkAdmin" placeholder="管理员令牌（可留空，存本地）">
+                <button id="bkSaveAdmin">保存</button>
+            </div>
+            <div class="bill-row">
+                <input type="text" id="bkUid" placeholder="新 Key 用户名，如 zwh">
+                <input type="number" id="bkInit" placeholder="初始 tokens" value="10000" style="flex:0 0 110px">
+                <button id="bkCreate">签发</button>
+                <button id="bkRefreshKeys">刷新列表</button>
+            </div>
+            <div class="bill-table" id="bkKeys"></div>
+            <div class="bill-sec">最近流水</div>
+            <div class="bill-row"><button id="bkLogs">拉取最近 20 条</button></div>
+            <div class="bill-log" id="bkLog"></div>
         </div>
     </div>
 </div>
@@ -1428,6 +1533,7 @@
                     if (data.ok) {
                         showMsg('addModelMsg', '✅ 接入成功：' + (data.data && data.data.label), true);
                         if (window.refreshModels) await window.refreshModels();
+                        if (window.loadBalances) window.loadBalances();
                         setTimeout(function(){ closeModal('addModelModal'); }, 700);
                     } else {
                         showMsg('addModelMsg', '❌ ' + (data.error || '接入失败'), false);
@@ -1468,6 +1574,155 @@
                 } catch (e) { showMsg('constraintMsg', '❌ 请求失败：' + e, false); }
             };
 
+            // ---- 💳 计费管理（P1）：Key 绑定 / 我的余额 / 管理操作 / 流水 ----
+            var BK_LS = 'mt_billing_key', AD_LS = 'mt_admin_token';
+            function getStored(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+            function setStored(k, v) { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) {} }
+            function fmtTokens(n) { n = Number(n) || 0; return n >= 10000 ? (n / 10000).toFixed(1) + 'w' : String(n); }
+            function adminHeaders() {
+                var h = { 'Content-Type': 'application/json' };
+                var t = getStored(AD_LS); if (t) h['X-Admin-Token'] = t;
+                return h;
+            }
+            function refreshBillPill() {
+                var key = getStored(BK_LS);
+                var pill = document.getElementById('billingPill');
+                if (!pill) return;
+                if (!key) { pill.style.display = 'none'; return; }
+                fetch('/billing/balance', { headers: { 'Authorization': 'Bearer ' + key } })
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        if (d.ok) {
+                            document.getElementById('billingBox').textContent = fmtTokens(d.data.balance);
+                            pill.style.display = '';
+                            pill.title = '账户 ' + d.data.user_id + ' · 累计已用 ' + fmtTokens(d.data.total_used) + '（计费管理中可解绑）';
+                        } else { pill.style.display = 'none'; }
+                    }).catch(function () {});
+            }
+            window.refreshBillPill = refreshBillPill;
+
+            function myBalance() {
+                var key = getStored(BK_LS);
+                var box = document.getElementById('bkMyInfo');
+                if (!key) { box.textContent = '未绑定 Key（匿名模式，不扣费）'; return; }
+                box.textContent = '查询中…';
+                fetch('/billing/balance', { headers: { 'Authorization': 'Bearer ' + key } })
+                    .then(function (r) { return r.json(); }).then(function (d) {
+                        box.textContent = d.ok
+                            ? '✅ 账户 ' + d.data.user_id + ' · 剩余 ' + d.data.balance + ' tokens · 累计已用 ' + d.data.total_used
+                            : '❌ ' + (d.error || '查询失败');
+                    }).catch(function () { box.textContent = '❌ 请求失败'; });
+            }
+
+            function renderKeys() {
+                var box = document.getElementById('bkKeys');
+                if (!box) return;
+                fetch('/billing/keys', { headers: adminHeaders() })
+                    .then(function (r) { return r.json(); }).then(function (d) {
+                        if (!d.ok) { box.innerHTML = '<div>❌ ' + (d.error || '加载失败') + '</div>'; return; }
+                        var keys = d.data.keys || [];
+                        if (!keys.length) { box.innerHTML = '<div>暂无 Key，先在上方签发一个</div>'; return; }
+                        box.innerHTML = '';
+                        keys.forEach(function (k) {
+                            var row = document.createElement('div'); row.className = 'bill-krow';
+                            var info = document.createElement('span'); info.className = 'grow';
+                            info.textContent = k.api_key.slice(0, 10) + '***' + k.api_key.slice(-4)
+                                + ' · ' + k.user_id + ' · 余 ' + fmtTokens(k.balance) + (k.disabled ? ' · 已禁用' : '');
+                            row.appendChild(info);
+                            function mkBtn(txt, fn, title) {
+                                var b = document.createElement('button'); b.textContent = txt;
+                                if (title) b.title = title; b.onclick = fn; return b;
+                            }
+                            row.appendChild(mkBtn('复制', function () {
+                                try { navigator.clipboard.writeText(k.api_key); showMsg('billingMsg', '✅ 完整 Key 已复制到剪贴板', true); } catch (e) {}
+                            }, '复制完整 Key（仅本弹窗可见）'));
+                            row.appendChild(mkBtn('+充', function () {
+                                var t = prompt('给账户「' + k.user_id + '」充值多少 tokens？', '10000');
+                                if (!t) return;
+                                fetch('/billing/recharge', { method: 'POST', headers: adminHeaders(), body: JSON.stringify({ api_key: k.api_key, tokens: Number(t) || 0 }) })
+                                    .then(function (r) { return r.json(); }).then(function (d2) {
+                                        showMsg('billingMsg', d2.ok ? '✅ 充值成功，剩余 ' + d2.data.balance : '❌ ' + (d2.error || '充值失败'), !!d2.ok);
+                                        renderKeys(); refreshBillPill();
+                                    }).catch(function () {});
+                            }, '充值'));
+                            row.appendChild(mkBtn(k.disabled ? '启用' : '禁用', function () {
+                                fetch('/billing/keys/disable', { method: 'POST', headers: adminHeaders(), body: JSON.stringify({ api_key: k.api_key, disabled: !k.disabled }) })
+                                    .then(function (r) { return r.json(); }).then(function (d2) {
+                                        if (!d2.ok) showMsg('billingMsg', '❌ ' + (d2.error || '操作失败'), false);
+                                        renderKeys();
+                                    }).catch(function () {});
+                            }));
+                            box.appendChild(row);
+                        });
+                    }).catch(function () { box.innerHTML = '<div>❌ 请求失败</div>'; });
+            }
+
+            var btnB = document.getElementById('btnBilling');
+            if (btnB) btnB.onclick = function () {
+                document.getElementById('bkMyKey').value = getStored(BK_LS);
+                document.getElementById('bkAdmin').value = getStored(AD_LS);
+                showMsg('billingMsg', '', true);
+                openModal('billingModal');
+                myBalance(); renderKeys();
+            };
+            var bkSaveKey = document.getElementById('bkSaveKey');
+            if (bkSaveKey) bkSaveKey.onclick = function () {
+                var v = document.getElementById('bkMyKey').value.trim();
+                if (!v) { showMsg('billingMsg', '❌ Key 不能为空', false); return; }
+                setStored(BK_LS, v);
+                showMsg('billingMsg', '✅ 已绑定（保存在浏览器本地）', true);
+                refreshBillPill(); myBalance();
+            };
+            var bkUnbind = document.getElementById('bkUnbind');
+            if (bkUnbind) bkUnbind.onclick = function () {
+                setStored(BK_LS, '');
+                document.getElementById('bkMyKey').value = '';
+                showMsg('billingMsg', '✅ 已解绑，恢复匿名模式', true);
+                refreshBillPill(); myBalance();
+            };
+            var bkSaveAdmin = document.getElementById('bkSaveAdmin');
+            if (bkSaveAdmin) bkSaveAdmin.onclick = function () {
+                setStored(AD_LS, document.getElementById('bkAdmin').value.trim());
+                showMsg('billingMsg', '✅ 管理员令牌已保存（仅本地）', true);
+                renderKeys();
+            };
+            var bkCreate = document.getElementById('bkCreate');
+            if (bkCreate) bkCreate.onclick = function () {
+                var uid = document.getElementById('bkUid').value.trim();
+                var init = Number(document.getElementById('bkInit').value) || 0;
+                if (!uid) { showMsg('billingMsg', '❌ 请填写用户名', false); return; }
+                fetch('/billing/keys', { method: 'POST', headers: adminHeaders(), body: JSON.stringify({ user_id: uid, init_tokens: init }) })
+                    .then(function (r) { return r.json(); }).then(function (d) {
+                        if (d.ok) {
+                            showMsg('billingMsg', '✅ 已签发：' + d.data.api_key + '（完整 Key 仅显示这一次，可点下方列表「复制」，或填到上面点「绑定」）', true);
+                            document.getElementById('bkMyKey').value = d.data.api_key;
+                            document.getElementById('bkUid').value = '';
+                            renderKeys();
+                        } else { showMsg('billingMsg', '❌ ' + (d.error || '签发失败'), false); }
+                    }).catch(function () { showMsg('billingMsg', '❌ 请求失败', false); });
+            };
+            var bkRefreshKeys = document.getElementById('bkRefreshKeys');
+            if (bkRefreshKeys) bkRefreshKeys.onclick = renderKeys;
+            var bkLogs = document.getElementById('bkLogs');
+            if (bkLogs) bkLogs.onclick = function () {
+                var box = document.getElementById('bkLog');
+                box.textContent = '加载中…';
+                fetch('/billing/logs?limit=20', { headers: adminHeaders() })
+                    .then(function (r) { return r.json(); }).then(function (d) {
+                        if (!d.ok) { box.textContent = '❌ ' + (d.error || '加载失败'); return; }
+                        var items = d.data.logs || [];
+                        if (!items.length) { box.textContent = '暂无流水'; return; }
+                        box.innerHTML = '';
+                        items.forEach(function (g) {
+                            var div = document.createElement('div');
+                            var t = new Date(g.ts * 1000).toLocaleTimeString();
+                            div.textContent = t + ' · ' + (g.source || '-') + (g.model ? ' · ' + g.model : '')
+                                + ' · ' + (g.tokens >= 0 ? '+' + g.tokens : g.tokens) + ' → 余 ' + g.balance_after;
+                            box.appendChild(div);
+                        });
+                    }).catch(function () { box.textContent = '❌ 请求失败'; });
+            };
+
             // ---- 遮罩点击 / ESC 关闭（用 onclick，稳定） ----
             var masks = document.querySelectorAll('.modal-mask');
             for (var i = 0; i < masks.length; i++) {
@@ -1481,6 +1736,7 @@
                     for (var j = 0; j < open.length; j++) open[j].classList.remove('show');
                 }
             });
+            refreshBillPill();   // 【计费P1】已绑定 Key 则恢复顶栏余额显示
         }
 
         if (document.readyState === 'loading') {

@@ -39,3 +39,11 @@ Thumbs.db
 
 # ===== 本地笔记（如果不想公开，按需保留）=====
 # knowledge/notes/
+
+# ===== 个人学习材料（不入库）=====
+/python_*.opml
+/python_*.md
+/python_*.js
+/python_*.html
+/style_guide_glm.md
+/static/python_*

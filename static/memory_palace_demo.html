@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>记忆宫殿 · 思维导图效果图</title>
+<style>
+    :root {
+        --bg:#0a0e18; --panel:#131a2b; --card:#1a2233; --line:#2a3450;
+        --txt:#e8ecf5; --dim:#8a94ab; --dim2:#aab3c7;
+        --c-main:#4f8cff; --c-viz:#a06bff; --c-ops:#ff8c42; --c-chat:#7d8aa3;
+        --gold:#ffd75e;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html,body { height:100%; overflow:hidden; }
+    body { background:var(--bg); font-family:"PingFang SC","Microsoft YaHei",sans-serif; color:var(--txt); }
+
+    /* ══════════ 演示背景（模拟任务台页面） ══════════ */
+    #fake { position:fixed; inset:0; padding:60px; filter:blur(2px) brightness(.5); }
+    #fake .fk-bar { height:44px; background:var(--panel); border-radius:12px; margin-bottom:16px; }
+    #fake .fk-row { display:flex; gap:16px; }
+    #fake .fk-card { width:32%; height:420px; background:var(--panel); border-radius:14px; }
+    #fake .reopen {
+        position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
+        display:none; padding:12px 26px; border-radius:12px; border:1px solid var(--line);
+        background:var(--card); color:var(--txt); font-size:15px; cursor:pointer; z-index:5;
+    }
+    body.closed #fake { filter:blur(2px) brightness(.9); }
+    body.closed #fake .reopen { display:block; }
+    body.closed #palace { display:none; }
+
+    /* ══════════ 弹窗主体 ══════════ */
+    #palace {
+        position:fixed; inset:3.5%; background:var(--panel); border:1px solid var(--line);
+        border-radius:16px; box-shadow:0 30px 90px rgba(0,0,0,.6);
+        display:flex; flex-direction:column; overflow:hidden; z-index:4;
+    }
+    .ph-top {
+        display:flex; align-items:center; gap:12px; padding:10px 16px;
+        border-bottom:1px solid var(--line); flex-shrink:0;
+    }
+    .ph-top .title { font-size:15px; font-weight:700; }
+    .chip-model {
+        font-size:11px; padding:3px 10px; border-radius:20px;
+        background:rgba(79,140,255,.15); color:var(--c-main); border:1px solid rgba(79,140,255,.35);
+    }
+    .chip-stat { font-size:11px; color:var(--dim); }
+    .ph-x { margin-left:auto; cursor:pointer; color:var(--dim); font-size:20px; line-height:1; padding:4px 8px; }
+    .ph-x:hover { color:var(--txt); }
+
+    .ph-body { flex:1; display:flex; min-height:0; }
+
+    /* ══════════ 画布（记忆宫殿） ══════════ */
+    #canvas { flex:1; position:relative; overflow:hidden; cursor:grab; background:
+        radial-gradient(ellipse at 50% 40%, rgba(79,140,255,.06), transparent 60%),
+        repeating-linear-gradient(0deg, transparent 0 39px, rgba(255,255,255,.025) 39px 40px),
+        repeating-linear-gradient(90deg, transparent 0 39px, rgba(255,255,255,.025) 39px 40px);
+    }
+    #canvas.dragging { cursor:grabbing; }
+
+    /* 【Edge 兼容】禁用文字选中与原生拖拽：拖拽平移不再触发选字、迷你菜单、拖拽弹窗 */
+    #canvas { user-select:none; -webkit-user-select:none; touch-action:none; }
+    .card { -webkit-user-drag:none; }
+    .card.expanded, .card.expanded * { user-select:text; -webkit-user-select:text; }
+    #world { position:absolute; left:0; top:0; width:2500px; height:1500px; transform-origin:0 0; }
+    #world.anim { transition:transform .5s cubic-bezier(.22,.9,.35,1); }
+    #edges { position:absolute; left:0; top:0; pointer-events:none; }
+
+    .card {
+        position:absolute; width:280px; height:150px; background:var(--card);
+        border:1px solid var(--line); border-radius:12px; padding:9px 12px;
+        box-shadow:0 6px 18px rgba(0,0,0,.35); cursor:pointer;
+        transition:box-shadow .2s, border-color .2s;
+    }
+    .card:hover { border-color:#3d4a6e; }
+    .c-head { display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--dim); }
+    .c-head .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .c-head .c-id { color:var(--dim2); font-weight:700; }
+    .fork { font-size:9.5px; padding:1px 6px; border-radius:8px; background:rgba(160,107,255,.18); color:#c9a6ff; }
+    .c-tok { margin-left:auto; }
+    .c-q { font-size:12.5px; font-weight:600; margin-top:6px; line-height:1.45;
+           display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .c-a { font-size:11.5px; color:var(--dim2); line-height:1.5; margin-top:6px; padding-top:6px;
+           border-top:1px dashed var(--line);
+           display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+    .c-note { position:absolute; right:10px; bottom:8px; font-size:10px; color:var(--gold); }
+    .card.expanded { height:auto; min-height:150px; z-index:3; }
+    .card.expanded .c-a { -webkit-line-clamp:unset; }
+    .card.hit { border-color:var(--gold); box-shadow:0 0 0 2px rgba(255,215,94,.35), 0 6px 18px rgba(0,0,0,.35); }
+    .card.best { animation:pulse 1.1s ease-out 2; border-color:var(--gold); }
+    @keyframes pulse {
+        0%   { box-shadow:0 0 0 0 rgba(255,215,94,.65); }
+        100% { box-shadow:0 0 0 22px rgba(255,215,94,0); }
+    }
+    mark { background:var(--gold); color:#222; border-radius:3px; padding:0 2px; }
+
+    /* 图例 & 缩放 */
+    #legend {
+        position:absolute; left:14px; bottom:12px; font-size:11px; color:var(--dim2);
+        background:rgba(10,14,24,.72); border:1px solid var(--line); border-radius:10px;
+        padding:8px 12px; backdrop-filter:blur(4px); line-height:1.9; pointer-events:none;
+    }
+    #legend .lg-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; }
+    #zoomctl { position:absolute; right:14px; top:12px; display:flex; gap:6px; }
+    #zoomctl button {
+        width:30px; height:30px; border-radius:8px; border:1px solid var(--line);
+        background:rgba(19,26,43,.9); color:var(--txt); cursor:pointer; font-size:14px;
+    }
+    #zoomctl button:hover { border-color:#3d4a6e; }
+    #zoomPct { font-size:11px; color:var(--dim); align-self:center; min-width:36px; text-align:center; }
+
+    /* ══════════ 右侧检索面板 ══════════ */
+    #side { width:272px; border-left:1px solid var(--line); display:flex; flex-direction:column; flex-shrink:0; }
+    .s-head { padding:12px 14px 8px; font-size:13px; font-weight:700; }
+    #sInput {
+        margin:0 14px; padding:8px 10px; border-radius:9px; border:1px solid var(--line);
+        background:var(--bg); color:var(--txt); font-size:12.5px; outline:none;
+    }
+    #sInput:focus { border-color:var(--c-main); }
+    #chips { display:flex; flex-wrap:wrap; gap:6px; padding:10px 14px 4px; }
+    .chip {
+        font-size:10.5px; padding:3px 9px; border-radius:20px; cursor:pointer; user-select:none;
+        border:1px solid var(--line); color:var(--dim2); background:var(--bg);
+    }
+    .chip .lg-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:4px; }
+    .chip.off { opacity:.35; }
+    .s-count { padding:8px 14px 6px; font-size:11px; color:var(--dim); }
+    #sList { flex:1; overflow-y:auto; padding:0 10px 10px; }
+    .r-item {
+        padding:8px 10px; border:1px solid var(--line); border-radius:10px;
+        margin-bottom:8px; cursor:pointer; background:var(--card);
+    }
+    .r-item:hover { border-color:#3d4a6e; }
+    .r-item.is-best { border-color:var(--gold); }
+    .r-head { font-size:10.5px; color:var(--dim); margin-bottom:4px; }
+    .r-snip { font-size:11.5px; color:var(--dim2); line-height:1.5; }
+    .s-empty { padding:20px 16px; font-size:12px; color:var(--dim); text-align:center; line-height:1.8; }
+    .s-tip { padding:10px 14px; border-top:1px solid var(--line); font-size:10.5px; color:var(--dim); line-height:1.8; }
+</style>
+</head>
+<body>
+
+<!-- 演示背景 -->
+<div id="fake">
+    <div class="fk-bar"></div>
+    <div class="fk-row"><div class="fk-card"></div><div class="fk-card"></div><div class="fk-card"></div></div>
+</div>
+<button class="reopen" onclick="document.body.classList.remove('closed')">▶ 重新打开「记忆宫殿」效果图</button>
+
+<!-- ══════════ 记忆宫殿弹窗 ══════════ -->
+<div id="palace">
+    <div class="ph-top">
+        <span class="title">🧠 记忆宫殿 · 会话记忆思维导图</span>
+        <span class="chip-model">GLM-4.6</span>
+        <span class="chip-stat">11 张卡片 · 4 条链 · 效果图（演示数据）</span>
+        <span class="ph-x" onclick="document.body.classList.add('closed')">×</span>
+    </div>
+    <div class="ph-body">
+        <div id="canvas">
+            <div id="world">
+                <svg id="edges" width="2500" height="1500"></svg>
+            </div>
+            <div id="zoomctl">
+                <button id="zOut">−</button><span id="zoomPct">85%</span>
+                <button id="zIn">＋</button><button id="zReset">⌖</button>
+            </div>
+            <div id="legend">
+                <div><span class="lg-dot" style="background:var(--c-main)"></span>主线 · 平台开发&nbsp;&nbsp;<span class="lg-dot" style="background:var(--c-viz)"></span>支线 · 记忆可视化</div>
+                <div><span class="lg-dot" style="background:var(--c-ops)"></span>支线 · 故障排查&nbsp;&nbsp;<span class="lg-dot" style="background:var(--c-chat)"></span>支线 · 闲聊</div>
+                <div style="margin-top:2px;color:var(--dim)">时间 → 链条内从左到右 · 话题不同即分叉⑂</div>
+            </div>
+        </div>
+        <aside id="side">
+            <div class="s-head">🔍 记忆检索</div>
+            <input id="sInput" placeholder="关键词，回车定位最佳命中">
+            <div id="chips"></div>
+            <div class="s-count" id="sCount">输入关键词开始检索</div>
+            <div id="sList"><div class="s-empty">试试搜索：<br>「计费」「思维导图」「502」</div></div>
+            <div class="s-tip">🖱 拖拽画布上下左右移动<br>滚动缩放 · 点击卡片展开全文</div>
+        </aside>
+    </div>
+</div>
+
+<script>
+    // ═══════════════ 演示数据 ═══════════════
+    const CW = 280, ANCH = 75;   // 卡片宽 / 锚点高
+    const CHAINS = {
+        main:{ name:'主线·平台开发', color:'#4f8cff' },
+        viz: { name:'支线·记忆可视化', color:'#a06bff' },
+        ops: { name:'支线·故障排查', color:'#ff8c42' },
+        chat:{ name:'支线·闲聊', color:'#7d8aa3' },
+    };
+    // parent=父卡片（连线来源）；fork=话题分叉新开的链头
+    const CARDS = [
+        { id:'c1', chain:'main', parent:null,  x:0,    y:700,  t:'14:02', tok:1820, q:'帮我把用户计费体系写进平台，暂时不需要中转站', a:'已设计 quota 表与扣费流程：每次调用按模型单价（输入/输出分开）累计，余额不足则拦截请求。' },
+        { id:'e1', chain:'chat', parent:'c1',  x:360,  y:1020, t:'14:06', tok:320,  fork:true, q:'先不聊了，中午吃什么', a:'楼下面馆今天有牛肉面，去晚要排队。' },
+        { id:'c2', chain:'main', parent:'c1',  x:360,  y:700,  t:'14:09', tok:2450, q:'token 怎么计价？不同模型价格应该不一样吧', a:'按模型单价表计价，输入/输出分别计费；会话页新增累计徽标，暂停续跑按基线只计增量，避免双计。' },
+        { id:'c3', chain:'main', parent:'c2',  x:720,  y:700,  t:'14:15', tok:2110, q:'加一个上游余额查询，点徽标手动刷新就行', a:'新增 GET /models/balance，打开页面拉一次、点击徽标强制刷新，不做自动轮询。' },
+        { id:'v1', chain:'viz',  parent:'c2',  x:840,  y:320,  t:'14:18', tok:2260, fork:true, q:'我想让每个模型的记忆可视化，你有思路吗', a:'三个方向：卡片内记忆抽屉 / 后端真实上下文接口 / 多模型记忆对比矩阵，附对比表与建议。' },
+        { id:'v2', chain:'viz',  parent:'v1',  x:1200, y:320,  t:'14:21', tok:2540, q:'我要的是思维导图：每次问答一张卡片，话题变了就新开一条链', a:'理解了——记忆宫殿式画布：链条即话题，卡片沿时间从左到右生长，分叉处挂新链。' },
+        { id:'v3', chain:'viz',  parent:'v2',  x:1560, y:320,  t:'14:24', tok:1230, q:'对，做成弹窗，支持上下左右拖拽，右侧搜索并让命中最高的卡片居中', a:'明白，先出大致效果图定夺，确认交互与样式后再接入真实记忆数据。', note:'↖ 你正在提的这个需求' },
+        { id:'c4', chain:'main', parent:'c3',  x:1080, y:700,  t:'14:26', tok:1980, q:'账单要能导出 CSV，按天汇总', a:'导出接口支持 start/end 日期参数，流式输出 CSV；按天聚合 tokens 与费用。' },
+        { id:'o1', chain:'ops',  parent:'c4',  x:1440, y:1020, t:'14:29', tok:990,  fork:true, q:'页面 502 了，帮我看看', a:'容器内存打满被 OOM 杀掉，已重启恢复；建议限制内存并把大文件拆分。' },
+        { id:'o2', chain:'ops',  parent:'o1',  x:1800, y:1020, t:'14:31', tok:870,  q:'docker logs 里全是 memory error', a:'日志确认 OOM；根因是单文件静态资源过大，压缩后内存峰值下降约 60%。' },
+        { id:'c5', chain:'main', parent:'c4',  x:1440, y:700,  t:'14:33', tok:1640, q:'跑一遍计费测试，重点看扣费别重复累计', a:'6 组用例全部通过；"暂停→继续"的双计问题已由基线方案修复，账单与徽标一致。' },
+    ];
+    // 按时间排全局轮次
+    [...CARDS].sort((a,b)=>a.t.localeCompare(b.t)).forEach((c,i)=>c.r=i+1);
+
+    // ═══════════════ 渲染卡片 & 连线 ═══════════════
+    const world = document.getElementById('world');
+    const byId = {}; CARDS.forEach(c => byId[c.id]=c);
+    const fmtTok = n => n>=1000 ? (n/1000).toFixed(1)+'k' : n;
+
+    CARDS.forEach(c => {
+        const ch = CHAINS[c.chain];
+        const d = document.createElement('div');
+        d.className = 'card'; d.id = 'mc-'+c.id;
+        d.style.left = c.x+'px'; d.style.top = c.y+'px';
+        d.innerHTML =
+            '<div class="c-head"><span class="dot" style="background:'+ch.color+'"></span>' +
+            '<span class="c-id">#'+c.r+'</span><span>'+c.t+'</span>' +
+            (c.fork ? '<span class="fork">⑂ 新链</span>' : '') +
+            '<span class="c-tok">🪙 '+fmtTok(c.tok)+'</span></div>' +
+            '<div class="c-q">👤 '+c.q+'</div>' +
+            '<div class="c-a">🤖 '+c.a+'</div>' +
+            (c.note ? '<div class="c-note">'+c.note+'</div>' : '');
+        world.appendChild(d);
+    });
+
+    (function drawEdges(){
+        let svg = '';
+        CARDS.forEach(c => {
+            if (!c.parent) return;
+            const p = byId[c.parent], color = CHAINS[c.chain].color;
+            const x1=p.x+CW, y1=p.y+ANCH, x2=c.x, y2=c.y+ANCH, mx=(x1+x2)/2;
+            svg += '<path d="M '+x1+' '+y1+' C '+mx+' '+y1+', '+mx+' '+y2+', '+x2+' '+y2+'" stroke="'+color+'" stroke-width="2" fill="none" opacity="0.75"/>';
+            svg += '<circle cx="'+x1+'" cy="'+y1+'" r="4" fill="'+color+'"/><circle cx="'+x2+'" cy="'+y2+'" r="4" fill="'+color+'"/>';
+        });
+        document.getElementById('edges').innerHTML = svg;
+    })();
+
+    // ═══════════════ 画布拖拽 / 缩放 ═══════════════
+    const canvas = document.getElementById('canvas');
+    const W=2500, H=1500;
+    const st = { x:0, y:0, s:0.85 };
+    let dragged = false;
+
+    function clampV(v,a,b){ const lo=Math.min(a,b), hi=Math.max(a,b); return Math.min(Math.max(v,lo),hi); }
+    function apply(){
+        st.x = clampV(st.x, canvas.clientWidth - W*st.s - 500, 500);
+        st.y = clampV(st.y, canvas.clientHeight - H*st.s - 500, 500);
+        world.style.transform = 'translate('+st.x+'px,'+st.y+'px) scale('+st.s+')';
+        document.getElementById('zoomPct').textContent = Math.round(st.s*100)+'%';
+    }
+    function centerOn(wx, wy, s2){
+        st.s = clampV(s2||st.s, 0.4, 1.8);
+        st.x = canvas.clientWidth/2 - wx*st.s;
+        st.y = canvas.clientHeight/2 - wy*st.s;
+        world.classList.add('anim'); apply();
+        setTimeout(()=>world.classList.remove('anim'), 520);
+    }
+
+    let pan = null;
+    canvas.addEventListener('pointerdown', e => {
+        if (e.target.closest && e.target.closest('.card.expanded')) { pan = null; return; }  // 展开卡片内：走原生选字复制
+        e.preventDefault();   // 【Edge 兼容】阻止文字选中与原生拖拽（click 不受影响，卡片展开正常）
+        pan = { mx:e.clientX, my:e.clientY, ox:st.x, oy:st.y, id:e.pointerId };
+        dragged = false;
+        canvas.classList.add('dragging');
+    });
+    window.addEventListener('pointermove', e => {   // 挂 window 而非 setPointerCapture：不劫持 click 目标
+        if (!pan || e.pointerId !== pan.id) return;
+        const dx = e.clientX-pan.mx, dy = e.clientY-pan.my;
+        if (Math.abs(dx)+Math.abs(dy) > 4) dragged = true;
+        st.x = pan.ox+dx; st.y = pan.oy+dy; apply();
+    });
+    window.addEventListener('pointerup', e => {
+        if (!pan || e.pointerId !== pan.id) return;
+        pan = null; canvas.classList.remove('dragging');
+    });
+    window.addEventListener('pointercancel', () => { pan = null; canvas.classList.remove('dragging'); });
+    canvas.addEventListener('dragstart', e => e.preventDefault());    // 【Edge 兼容】彻底禁用原生 HTML5 拖拽（新页面弹窗的根源）
+    canvas.addEventListener('contextmenu', e => e.preventDefault());  // 【Edge 兼容】画布内屏蔽右键菜单（侧栏输入框粘贴不受影响）
+    canvas.addEventListener('wheel', e => {
+        e.preventDefault();
+        const r = canvas.getBoundingClientRect();
+        const mx=e.clientX-r.left, my=e.clientY-r.top;
+        const wx=(mx-st.x)/st.s, wy=(my-st.y)/st.s;
+        st.s = clampV(st.s * (e.deltaY<0?1.1:0.9), 0.4, 1.8);
+        st.x = mx - wx*st.s; st.y = my - wy*st.s;
+        world.classList.remove('anim'); apply();
+    }, { passive:false });
+
+    document.getElementById('zIn').onclick  = () => centerOn((canvas.clientWidth/2-st.x)/st.s, (canvas.clientHeight/2-st.y)/st.s, st.s*1.2);
+    document.getElementById('zOut').onclick = () => centerOn((canvas.clientWidth/2-st.x)/st.s, (canvas.clientHeight/2-st.y)/st.s, st.s/1.2);
+    document.getElementById('zReset').onclick = () => centerOn(950, 745, 0.85);
+
+    // 点击卡片 = 展开全文（拖拽不算点击）
+    world.addEventListener('click', e => {
+        if (dragged) return;
+        const card = e.target.closest('.card');
+        if (card) card.classList.toggle('expanded');
+    });
+
+    // ═══════════════ 关键词检索 ═══════════════
+    const enabled = { main:true, viz:true, ops:true, chat:true };
+    const chipsBox = document.getElementById('chips');
+    Object.keys(CHAINS).forEach(k => {
+        const s = document.createElement('span');
+        s.className='chip'; s.innerHTML='<span class="lg-dot" style="background:'+CHAINS[k].color+'"></span>'+CHAINS[k].name;
+        s.onclick = () => { enabled[k]=!enabled[k]; s.classList.toggle('off', !enabled[k]); doSearch(); };
+        chipsBox.appendChild(s);
+    });
+
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    function snippet(text, kw){
+        const i = text.toLowerCase().indexOf(kw.toLowerCase());
+        const a = Math.max(0, i-22), b = Math.min(text.length, i+kw.length+30);
+        return (a>0?'…':'') + esc(text.slice(a,i)) + '<mark>' + esc(text.slice(i,i+kw.length)) + '</mark>' + esc(text.slice(i+kw.length,b)) + (b<text.length?'…':'');
+    }
+
+    function doSearch(){
+        const kw = document.getElementById('sInput').value.trim();
+        document.querySelectorAll('.card').forEach(c => c.classList.remove('hit','best'));
+        const list = document.getElementById('sList');
+        const cnt  = document.getElementById('sCount');
+        if (!kw){ cnt.textContent='输入关键词开始检索';
+                  list.innerHTML='<div class="s-empty">试试搜索：<br>「计费」「思维导图」「502」</div>'; return; }
+        const hits = CARDS.filter(c => enabled[c.chain]).map(c => {
+            const qs=(c.q.toLowerCase().split(kw.toLowerCase()).length-1)*3;
+            const as=(c.a.toLowerCase().split(kw.toLowerCase()).length-1)*2;
+            return { c, score:qs+as, inQ:qs>0 };
+        }).filter(h => h.score>0).sort((a,b)=>b.score-a.score || a.c.r-b.c.r);
+
+        if (!hits.length){ cnt.textContent='未命中任何卡片';
+            list.innerHTML='<div class="s-empty">没有匹配的记忆卡片<br>试试其他关键词，或点亮更多链条</div>'; return; }
+
+        cnt.textContent = '命中 '+hits.length+' 张卡片 · 最佳 → #'+hits[0].c.r;
+        list.innerHTML = '';
+        hits.forEach((h,i) => {
+            const item = document.createElement('div');
+            item.className = 'r-item' + (i===0?' is-best':'');
+            item.innerHTML = '<div class="r-head">#'+h.c.r+' · '+h.c.t+' · '+CHAINS[h.c.chain].name+' · 匹配度 '+h.score+'</div>' +
+                             '<div class="r-snip">'+snippet(h.inQ?h.c.q:h.c.a, kw)+'</div>';
+            item.onclick = () => focusCard(h.c.id);
+            list.appendChild(item);
+            document.getElementById('mc-'+h.c.id).classList.add('hit');
+        });
+        focusCard(hits[0].c.id);   // 命中最高的卡片居中
+    }
+
+    function focusCard(id){
+        document.querySelectorAll('.card.best').forEach(c=>c.classList.remove('best'));
+        const c = byId[id], card = document.getElementById('mc-'+id);
+        if (!c || !card) return;
+        card.classList.remove('best'); void card.offsetWidth;   // 重触发脉冲动画
+        card.classList.add('best');
+        centerOn(c.x + CW/2, c.y + ANCH, Math.max(st.s, 0.95));
+    }
+
+    let deb=null;
+    document.getElementById('sInput').addEventListener('input', ()=>{ clearTimeout(deb); deb=setTimeout(doSearch,180); });
+    document.getElementById('sInput').addEventListener('keydown', e => { if (e.key==='Enter') doSearch(); });
+    window.addEventListener('keydown', e => { if (e.key==='Escape') document.body.classList.add('closed'); });
+
+    // 初始视野
+    apply();
+    setTimeout(()=>centerOn(950, 745, 0.85), 50);
+</script>
+</body>
+</html>

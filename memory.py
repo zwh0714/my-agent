@@ -168,3 +168,82 @@ def load_conversation(user_id: str = 'default_user') -> list:
 
     # 无历史：返回空历史，system 由上层重建（不再返回占位 system）
     return []
+
+
+# ═══════════════ 【记忆宫殿】平台卡片对话的后端记忆存储（契约 v1）═══════════════
+# 表 chat_cards：每张对比卡一条记录（chat_id = 前端 task_id），upsert 保存、可删除。
+# 与 conversations（agent 单槽记忆）互不影响。
+
+_CHAT_CARDS_DDL = """
+    CREATE TABLE IF NOT EXISTS chat_cards (
+        chat_id TEXT PRIMARY KEY,
+        model_id TEXT DEFAULT '',
+        model_label TEXT DEFAULT '',
+        status TEXT DEFAULT 'ok',
+        error_msg TEXT,
+        messages TEXT DEFAULT '[]',
+        msg_count INTEGER DEFAULT 0,
+        created_at TEXT,
+        updated_at TEXT
+    )
+"""
+
+
+def _chat_cards_conn():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(_CHAT_CARDS_DDL)
+    return conn
+
+
+def save_chat_card(chat_id: str, model_id: str = '', model_label: str = '',
+                   status: str = 'ok', error_msg=None, messages: list = None) -> str:
+    """upsert 一张卡的完整对话（messages 为空时等同清空该记忆）。返回 updated_at（ISO 字符串）。"""
+    messages = messages or []
+    now = datetime.now().isoformat()   # 微秒精度：保证同秒内多次保存的 updated_at 排序稳定
+    conn = _chat_cards_conn()
+    cur = conn.cursor()
+    cur.execute('SELECT created_at FROM chat_cards WHERE chat_id = ?', (chat_id,))
+    row = cur.fetchone()
+    created_at = row[0] if row and row[0] else now
+    cur.execute(
+        "INSERT OR REPLACE INTO chat_cards"
+        " (chat_id, model_id, model_label, status, error_msg, messages, msg_count, created_at, updated_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (chat_id, model_id or '', model_label or '', status, error_msg,
+         json.dumps(messages, ensure_ascii=False), len(messages), created_at, now))
+    conn.commit()
+    conn.close()
+    return now
+
+
+def load_chat_cards(limit: int = 200) -> list:
+    """按 updated_at 倒序返回卡片对话记录列表。"""
+    conn = _chat_cards_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT chat_id, model_id, model_label, status, error_msg,"
+        " messages, msg_count, created_at, updated_at"
+        " FROM chat_cards ORDER BY updated_at DESC LIMIT ?", (int(limit),))
+    items = []
+    for r in cur.fetchall():
+        try:
+            msgs = json.loads(r[5] or '[]')
+        except Exception:
+            msgs = []
+        items.append({
+            'chat_id': r[0], 'model_id': r[1], 'model_label': r[2],
+            'status': r[3] or 'ok', 'error_msg': r[4], 'messages': msgs,
+            'msg_count': r[6] or 0, 'created_at': r[7], 'updated_at': r[8],
+        })
+    conn.close()
+    return items
+
+
+def delete_chat_card(chat_id: str) -> bool:
+    conn = _chat_cards_conn()
+    cur = conn.cursor()
+    cur.execute('DELETE FROM chat_cards WHERE chat_id = ?', (chat_id,))
+    removed = cur.rowcount > 0
+    conn.commit()
+    conn.close()
+    return removed

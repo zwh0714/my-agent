@@ -5,6 +5,7 @@ import threading
 import asyncio
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
+import uuid
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
@@ -454,6 +455,179 @@ async def chat_stream(request: ChatRequest, authorization: Optional[str] = Heade
     )
 
 
+# ─────────────── 【多模型融合】/chat/fuse/stream（契约 v1） ───────────────
+# 成员并行并答（各带各自历史上下文）→ 全部结束后裁判（挂工具）合成最终答案。
+# SSE 行协议（data: JSON，全部 additive，复用现有 done/error 约定）：
+#   {"type":"delta","phase":"member","model_id":...,"content":...}     成员流式
+#   {"type":"usage","phase":"member","model_id":...,"tokens":{...}}    成员用量（该成员全轮累计）
+#   {"type":"member_done","model_id":...,"ok":bool,"error_msg":...}    成员结束（失败不中断整体）
+#   {"type":"delta","phase":"judge","content":...}                     裁判流式
+#   {"type":"usage","phase":"judge","tokens":{...}}                    裁判用量
+#   {"type":"judge_fallback","error":...,"members":{model:text}}       裁判失败降级（成员文本直出）
+#   {"type":"done","content":裁判全文,"members":{model:text},"failed":[model],"done":true}
+# 注意：成员级失败故意不用 error 键，保持「data.error = 全局致命错误」语义不变。
+class FuseChatRequest(BaseModel):
+    user_id: str = "default_user"
+    message: str
+    models: List[str]                   # 成员模型 2~4 个，自动去重
+    judge_model: str                    # 裁判模型，必须是 models 之一
+    images: List[str] = []
+    max_iterations: int = 25
+
+
+_FUSE_JUDGE_PROMPT = """你是多模型融合裁判。以下是用户问题和多个 AI 模型的回答，请综合各回答的优点，输出一份最终的融合答案。
+
+要求：
+1. 直接输出融合后的最终答案，不要逐条复述各模型的回答；
+2. 信息冲突时以更准确、更可信的内容为准；
+3. 各模型互补的信息应全部保留，不要遗漏关键信息；
+4. 各模型回答都不完整或互相矛盾且无法判断时，可以使用工具查证后再给出答案；
+5. 使用与用户问题一致的语言回答。
+
+【用户问题】
+{question}
+
+{answers}
+"""
+
+
+@app.post("/chat/fuse/stream")
+async def chat_fuse_stream(request: FuseChatRequest, authorization: Optional[str] = Header(None)):
+    # 校验：成员 2~4 个、去重、裁判必须在成员内
+    models: List[str] = []
+    for m in request.models:
+        if m and m not in models:
+            models.append(m)
+    if not (2 <= len(models) <= 4):
+        raise HTTPException(status_code=422, detail="models 需为 2~4 个不同模型")
+    if request.judge_model not in models:
+        raise HTTPException(status_code=422, detail="judge_model 必须是 models 之一")
+
+    account, raw_key = _billing_precheck(authorization)
+    user_id = request.user_id
+    loop = asyncio.get_running_loop()
+
+    # 成员 agent（各自带各自的历史上下文——被拖卡历史并入语义在 agent 记忆层天然成立）
+    member_agents = {m: get_agent(user_id, m) for m in models}
+    member_text = {m: "" for m in models}
+    fuse_q: asyncio.Queue = asyncio.Queue()
+
+    def make_producer(m: str):
+        def producer():
+            try:
+                for ev in member_agents[m].chat_stream(request.message, max_iterations=request.max_iterations, images=request.images):
+                    t = ev.get("type")
+                    if t == "content":
+                        member_text[m] += ev.get("content") or ""
+                        loop.call_soon_threadsafe(fuse_q.put_nowait, {"type": "member_delta", "model_id": m, "content": ev.get("content")})
+                    elif t == "usage":
+                        loop.call_soon_threadsafe(fuse_q.put_nowait, {"type": "usage", "phase": "member", "model_id": m, "tokens": ev.get("tokens")})
+                    elif t == "paused":
+                        # 成员到达迭代上限：视为该成员完成（保留已生成部分）
+                        loop.call_soon_threadsafe(fuse_q.put_nowait, {"type": "member_done", "model_id": m, "ok": True, "paused": True, "error_msg": None})
+                        return
+                    elif t == "error":
+                        loop.call_soon_threadsafe(fuse_q.put_nowait, {"type": "member_done", "model_id": m, "ok": False, "paused": False, "error_msg": ev.get("error", "成员失败")})
+                        return
+                loop.call_soon_threadsafe(fuse_q.put_nowait, {"type": "member_done", "model_id": m, "ok": True, "paused": False, "error_msg": None})
+            except Exception as e:
+                loop.call_soon_threadsafe(fuse_q.put_nowait, {"type": "member_done", "model_id": m, "ok": False, "paused": False, "error_msg": str(e)})
+        return producer
+
+    def sse(o: dict) -> str:
+        return f"data: {json.dumps(o, ensure_ascii=False)}\n\n"
+
+    async def generate():
+        billed = {}   # (phase, model) -> 已扣累计
+
+        def bill(phase, model, tokens_total):
+            if not account or not tokens_total:
+                return None
+            key = (phase, model)
+            delta = tokens_total - billed.get(key, 0)
+            if delta <= 0:
+                return None
+            res = billing.deduct(raw_key, delta, model=model, source=f"fuse_{phase}")
+            billed[key] = tokens_total
+            if not res.get("ok"):
+                print(f"💰 计费警告: {res.get('error')}")
+                return {"type": "billing_warning", "error": res.get("error", "扣费失败")}
+            print(f"💰 计费(fuse {phase}/{model}): -{delta} tokens，剩余 {(res.get('data') or {}).get('balance')}")
+            return None
+
+        async with semaphore:   # 整个融合会话占 1 个并发槽，内部成员靠 executor 并行
+            for m in models:
+                executor.submit(make_producer(m))
+
+            # ── 阶段 1：成员并答（单队列多路复用，事件天然交错）──
+            ok_members: List[str] = []
+            failed_members: List[dict] = []
+            done_cnt = 0
+            while done_cnt < len(models):
+                ev = await fuse_q.get()
+                if ev["type"] == "member_delta":
+                    yield sse({"type": "delta", "phase": "member", "model_id": ev["model_id"], "content": ev["content"], "done": False})
+                elif ev["type"] == "usage":
+                    w = bill("member", ev["model_id"], (ev.get("tokens") or {}).get("total"))
+                    if w:
+                        yield sse(w)
+                    yield sse({"type": "usage", "phase": "member", "model_id": ev["model_id"], "tokens": ev.get("tokens"), "done": False})
+                elif ev["type"] == "member_done":
+                    done_cnt += 1
+                    if ev["ok"]:
+                        ok_members.append(ev["model_id"])
+                    else:
+                        failed_members.append({"model_id": ev["model_id"], "error_msg": ev["error_msg"]})
+                    yield sse({"type": "member_done", "model_id": ev["model_id"], "ok": ev["ok"], "error_msg": ev["error_msg"], "done": False})
+
+            # ── 阶段 2：裁判合成（挂工具：一次性 AgentWithMemory 实例，自带工具循环，用完重置）──
+            if not ok_members:
+                yield sse({"error": "所有成员模型均失败，无法合成", "done": True})
+                return
+            answers = "\n\n".join(f"【模型 {m} 的回答】\n{member_text[m]}" for m in ok_members)
+            judge_prompt = _FUSE_JUDGE_PROMPT.format(question=request.message, answers=answers)
+            judge_agent = AgentWithMemory(
+                user_id=_agent_key(user_id, request.judge_model) + f"::fuse_judge::{uuid.uuid4().hex[:8]}",
+                model=request.judge_model)
+            try:
+                judge_text = ""
+                for ev in judge_agent.chat_stream(judge_prompt, max_iterations=max(8, request.max_iterations)):
+                    t = ev.get("type")
+                    if t == "content":
+                        judge_text += ev.get("content") or ""
+                        yield sse({"type": "delta", "phase": "judge", "content": ev.get("content"), "done": False})
+                    elif t == "usage":
+                        w = bill("judge", request.judge_model, (ev.get("tokens") or {}).get("total"))
+                        if w:
+                            yield sse(w)
+                        yield sse({"type": "usage", "phase": "judge", "tokens": ev.get("tokens"), "done": False})
+                    elif t == "error":
+                        yield sse({"type": "judge_fallback", "error": ev.get("error", "裁判失败"),
+                                   "members": {m: member_text[m] for m in ok_members}, "done": True})
+                        return
+                yield sse({"type": "done", "content": judge_text,
+                           "members": {m: member_text[m] for m in ok_members},
+                           "failed": [f["model_id"] for f in failed_members], "done": True})
+            except Exception as e:
+                yield sse({"type": "judge_fallback", "error": str(e),
+                           "members": {m: member_text[m] for m in ok_members}, "done": True})
+            finally:
+                try:
+                    judge_agent.reset()   # 裁判一次性上下文用完即清，不污染记忆
+                except Exception:
+                    pass
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
+
 @app.post("/reset")
 async def reset(user_id: str = "default_user", model: str = DEFAULT_MODEL):
     """重置指定用户+模型的对话"""
@@ -487,6 +661,64 @@ async def knowledge_ask(request: KnowledgeRequest):
         return {"answer": answer}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─────────────── 【记忆宫殿】平台卡片对话后端记忆（契约 v1：统一 {"ok","data","error"}） ───────────────
+class MemoryChatIn(BaseModel):
+    chat_id: str                       # = 前端 task_id
+    model_id: str = ""
+    model_label: str = ""
+    status: str = "ok"                 # 'ok' | 'error'
+    error_msg: Optional[str] = None
+    messages: list = []                # [{role: 'user'|'assistant', content: str}]
+
+
+@app.post("/memory/chats")
+async def memory_chats_save(body: MemoryChatIn):
+    try:
+        import memory as memory_store
+        if body.status not in ("ok", "error"):
+            return {"ok": False, "data": None, "error": "status must be 'ok' or 'error'"}
+        msgs = []
+        for m in (body.messages or [])[:400]:
+            if isinstance(m, dict) and m.get("role") in ("user", "assistant"):
+                entry = {"role": m["role"], "content": str(m.get("content") or "")[:20000]}
+                # 【契约变更 v1.1】融合轮 assistant 消息可携带 fusionDetail（成员原始回答/状态/用量），
+                # 用于记忆宫殿回溯失败成员。additive，旧记录无此字段不受影响。
+                if isinstance(m.get("fusionDetail"), list):
+                    entry["fusionDetail"] = m["fusionDetail"][:8]
+                msgs.append(entry)
+        loop = asyncio.get_running_loop()
+        updated_at = await loop.run_in_executor(
+            executor, memory_store.save_chat_card,
+            body.chat_id, body.model_id or "", body.model_label or "",
+            body.status, body.error_msg, msgs)
+        return {"ok": True, "data": {"chat_id": body.chat_id, "updated_at": updated_at, "msg_count": len(msgs)}, "error": None}
+    except Exception as e:
+        return {"ok": False, "data": None, "error": str(e)}
+
+
+@app.get("/memory/chats")
+async def memory_chats_list(limit: int = 200):
+    try:
+        import memory as memory_store
+        limit = max(1, min(int(limit), 500))
+        loop = asyncio.get_running_loop()
+        chats = await loop.run_in_executor(executor, memory_store.load_chat_cards, limit)
+        return {"ok": True, "data": {"count": len(chats), "chats": chats}, "error": None}
+    except Exception as e:
+        return {"ok": False, "data": None, "error": str(e)}
+
+
+@app.delete("/memory/chats/{chat_id}")
+async def memory_chats_delete(chat_id: str):
+    try:
+        import memory as memory_store
+        loop = asyncio.get_running_loop()
+        removed = await loop.run_in_executor(executor, memory_store.delete_chat_card, chat_id)
+        return {"ok": removed, "data": {"chat_id": chat_id}, "error": None if removed else "chat not found"}
+    except Exception as e:
+        return {"ok": False, "data": None, "error": str(e)}
 
 
 if __name__ == "__main__":

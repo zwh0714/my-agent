@@ -181,6 +181,15 @@
             background:var(--panel-2); color:var(--text-dim); white-space:nowrap;
         }
         .topbar .pill b { color:var(--accent); font-weight:600; }
+
+/* ---- 【导出P1】顶栏导出按钮 mini 菜单 + 全局 toast ---- */
+#exportMenu { display:none; position:fixed; z-index:1500; background:var(--panel-2); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.35); padding:4px; min-width:158px; }
+#exportMenu.show { display:block; }
+#exportMenu .ex-item { padding:7px 12px; font-size:12.5px; color:var(--text); cursor:pointer; border-radius:7px; white-space:nowrap; }
+#exportMenu .ex-item:hover { background:var(--accent); color:#fff; }
+#toast { position:fixed; top:54px; left:50%; transform:translate(-50%,-8px); z-index:3000; background:var(--panel-2); border:1px solid var(--border); border-left:3px solid var(--accent); color:var(--text); font-size:12.5px; padding:8px 14px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.3); opacity:0; pointer-events:none; transition:opacity .22s, transform .22s; max-width:70vw; }
+#toast.show { opacity:1; transform:translate(-50%,0); }
+
 /* ---- 【计费P1】余额徽标 / 计费管理弹窗 ---- */
 .m-balance { font-size:11px; color:var(--text-dim); cursor:pointer; margin-left:5px; white-space:nowrap; flex-shrink:0; }
 .m-balance.low { color:var(--err); font-weight:600; }
@@ -464,7 +473,120 @@
         }
         .cb-row button:hover:not(:disabled) { background:var(--accent-2); }
         .cb-row button:disabled { opacity:.5; cursor:not-allowed; }
-    </style>
+            /* ================= 【记忆宫殿】对话思维导图 ================= */
+        .pal-mask { position:fixed; inset:0; z-index:1000; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); }
+        .pal-mask.show { display:flex; }
+        .pal-mask.hist { z-index:1100; }
+        .pal-win { width:94vw; height:90vh; background:var(--panel); border:1px solid var(--border); border-radius:14px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 30px 90px rgba(0,0,0,.45); }
+        .pal-top { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--border); }
+        .pal-title { font-size:14px; font-weight:700; }
+        .pal-stat { font-size:11px; color:var(--text-dim); }
+        .pal-x { margin-left:auto; cursor:pointer; color:var(--text-dim); font-size:18px; line-height:1; padding:2px 8px; }
+        .pal-x:hover { color:#e5534b; }
+        .pal-body { flex:1; display:flex; min-height:0; }
+        .pal-canvas { flex:1; position:relative; overflow:hidden; cursor:grab; user-select:none; -webkit-user-select:none; touch-action:none;
+            background:radial-gradient(ellipse at 50% 40%, rgba(88,166,255,.05), transparent 60%),
+            repeating-linear-gradient(0deg, transparent 0 39px, rgba(127,127,127,.08) 39px 40px),
+            repeating-linear-gradient(90deg, transparent 0 39px, rgba(127,127,127,.08) 39px 40px); }
+        .pal-canvas.dragging { cursor:grabbing; }
+        .pal-world { position:absolute; left:0; top:0; transform-origin:0 0; }
+        .pal-world.anim { transition:transform .5s cubic-bezier(.22,.9,.35,1); }
+        .pal-edges { position:absolute; left:0; top:0; pointer-events:none; }
+        .pal-chain-tag { position:absolute; left:16px; max-width:130px; padding:5px 9px; border:1px solid var(--border); border-left-width:3px; border-radius:9px; background:var(--panel-2); font-size:11px; color:var(--text-dim); display:flex; align-items:center; gap:5px; pointer-events:none; }
+        .pal-tag-t { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font-weight:600; }
+        .pal-tag-n { flex-shrink:0; }
+        .pal-dot { display:inline-block; width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+        .pal-world-empty { position:absolute; left:50%; top:110px; transform:translateX(-50%); padding:18px 30px; border:1px dashed var(--border); border-radius:14px; background:var(--panel-2); color:var(--text-dim); font-size:13px; text-align:center; line-height:2; white-space:nowrap; }
+        .pal-world-empty b { color:var(--text); }
+        .pal-card { position:absolute; width:240px; min-height:130px; background:var(--panel); border:1px solid var(--border); border-radius:11px; padding:9px 11px; cursor:pointer; box-shadow:0 5px 16px rgba(0,0,0,.18); transition:border-color .15s, box-shadow .15s; }
+        .pal-card:hover { border-color:var(--accent); }
+        .pal-ch { display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text-dim); }
+        .pal-ch b { color:var(--text); }
+        .pal-open { margin-left:auto; font-size:10px; color:var(--accent); opacity:0; transition:opacity .15s; }
+        .pal-card:hover .pal-open { opacity:1; }
+        .pal-q { font-size:12px; font-weight:600; line-height:1.45; margin-top:5px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .pal-a { font-size:11.5px; color:var(--text-dim); line-height:1.5; margin-top:5px; padding-top:5px; border-top:1px dashed var(--border); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+        .pal-card.pal-pending { border-style:dashed; opacity:.85; }
+        .pal-card.pal-dim { opacity:.22; }
+        .pal-card.hit { border-color:#d4a72c; box-shadow:0 0 0 2px rgba(212,167,44,.35); }
+        .pal-card.best { animation:palPulse 1.1s ease-out 2; border-color:#d4a72c; }
+        @keyframes palPulse { 0% { box-shadow:0 0 0 0 rgba(212,167,44,.6); } 100% { box-shadow:0 0 0 20px rgba(212,167,44,0); } }
+        .pal-zoom { position:absolute; right:12px; top:12px; display:flex; gap:6px; align-items:center; }
+        .pal-zoom button { width:28px; height:28px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); cursor:pointer; font-size:13px; }
+        .pal-zoom button:hover { border-color:var(--accent); }
+        #palPct { font-size:10.5px; color:var(--text-dim); min-width:34px; text-align:center; }
+        .pal-legend { position:absolute; left:12px; bottom:12px; font-size:10.5px; color:var(--text-dim); background:var(--panel); border:1px solid var(--border); border-radius:9px; padding:7px 10px; line-height:1.7; pointer-events:none; }
+        .pal-side { width:264px; border-left:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; background:var(--panel); }
+        .pal-shead { padding:12px 13px 8px; font-size:13px; font-weight:700; }
+        .pal-input { margin:0 13px; padding:7px 9px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:12px; outline:none; }
+        .pal-input:focus { border-color:var(--accent); }
+        .pal-chips { display:flex; flex-wrap:wrap; gap:5px; padding:9px 13px 4px; }
+        .pal-chip { font-size:10px; padding:2px 8px; border-radius:16px; border:1px solid var(--border); color:var(--text-dim); cursor:pointer; display:inline-flex; align-items:center; gap:4px; user-select:none; }
+        .pal-chip.off { opacity:.35; }
+        .pal-count { padding:7px 13px 5px; font-size:10.5px; color:var(--text-dim); }
+        .pal-list { flex:1; overflow-y:auto; padding:0 9px 9px; }
+        .pal-empty { padding:18px 10px; font-size:11.5px; color:var(--text-dim); text-align:center; line-height:1.8; }
+        .pal-ritem { padding:7px 9px; border:1px solid var(--border); border-radius:9px; margin-bottom:7px; cursor:pointer; background:var(--panel-2); }
+        .pal-ritem:hover { border-color:var(--accent); }
+        .pal-ritem.is-best { border-color:#d4a72c; }
+        .pal-rhead { font-size:10px; color:var(--text-dim); margin-bottom:3px; }
+        .pal-rsnip { font-size:11px; color:var(--text); line-height:1.5; word-break:break-all; }
+        .pal-rsnip mark { background:#d4a72c; color:#222; border-radius:2px; padding:0 1px; }
+        .pal-hmodal { width:min(760px, 92vw); max-height:82vh; background:var(--panel); border:1px solid var(--border); border-radius:14px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 30px 90px rgba(0,0,0,.45); }
+        .pal-hbody { flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
+        .pal-hmsg { border:1px solid var(--border); border-radius:10px; padding:8px 11px; background:var(--panel-2); }
+        .pal-hmsg.user { border-left:3px solid var(--accent); }
+        .pal-hmsg.bot { border-left:3px solid var(--accent-2, var(--accent)); }
+        .pal-hhead { font-size:10.5px; color:var(--text-dim); margin-bottom:4px; }
+        .pal-hu { font-size:12.5px; white-space:pre-wrap; word-break:break-word; }
+        .pal-ha { font-size:12.5px; line-height:1.6; word-break:break-word; }
+        .pal-ha pre, .pal-ha code { max-width:100%; overflow-x:auto; }
+        .pal-hwait { margin-top:5px; font-size:11px; color:var(--text-dim); font-style:italic; }
+        .pal-hmsg.hl { animation:palHl 1.6s ease-out 1; }
+        @keyframes palHl { 0%, 40% { box-shadow:0 0 0 3px rgba(212,167,44,.55); } 100% { box-shadow:0 0 0 0 rgba(212,167,44,0); } }
+        /* 【失败记忆】红系样式 */
+        .pal-chain-tag.failed { border-color:#e5534b; }
+        .pal-chain-tag.failed .pal-tag-t { color:#e5534b; }
+        .pal-card.pal-error { border:1px dashed #e5534b; }
+        .pal-card.pal-error .pal-a { color:#e5534b; }
+        .pal-herr { border:1px dashed #e5534b; border-radius:10px; padding:8px 11px; font-size:12px; color:#e5534b; background:rgba(229,83,75,.06); }
+        .pal-failbtn { margin-left:auto; font-size:10px; font-weight:400; padding:2px 8px; border-radius:14px; border:1px solid var(--border); color:var(--text-dim); cursor:pointer; user-select:none; }
+        .pal-failbtn.on { border-color:#e5534b; color:#e5534b; background:rgba(229,83,75,.08); }
+        /* ═══【多模型融合】═══ */
+        .c-drag { cursor:grab; font-size:13px; opacity:.4; padding:0 3px; user-select:none; -webkit-user-select:none; touch-action:none; line-height:1; }
+        .c-drag:active { cursor:grabbing; }
+        .fuse-ghost { position:fixed; z-index:9999; pointer-events:none; font-size:12px; font-weight:600;
+            color:#fff; background:var(--accent); border-radius:12px; padding:4px 10px;
+            box-shadow:0 4px 14px rgba(0,0,0,.25); white-space:nowrap; }
+        .card.dragging { opacity:.45; transform:scale(.97); }
+        .card.fuse-out { opacity:0; transform:scale(.6); transition:all .25s ease; }
+        .card.fusion-target { outline:2px dashed var(--accent); outline-offset:3px; }
+        .card.fusion-target::after { content:'⬇ 松手融合到此卡'; position:absolute; inset:0; z-index:6;
+            display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600;
+            color:var(--accent); background:color-mix(in srgb, var(--accent) 8%, transparent);
+            border-radius:inherit; pointer-events:none; }
+        .fuse-badge { display:inline-flex; gap:4px; align-items:center; flex-wrap:wrap; min-width:0; }
+        .fuse-badge .fb-chip { font-size:10px; padding:1px 6px; border-radius:8px; border:1px solid var(--border); white-space:nowrap; }
+        .fuse-badge .fb-chip.fb-judge { border-color:var(--accent); color:var(--accent); }
+        .fuse-badge select { font-size:10px; max-width:86px; background:transparent; color:var(--text);
+            border:1px solid var(--border); border-radius:8px; padding:0 2px; }
+        .fuse-wrap { border:1px solid var(--border); border-radius:10px; overflow:hidden; margin:2px 0; }
+        .fuse-tabs { display:flex; flex-wrap:wrap; border-bottom:1px solid var(--border); background:color-mix(in srgb, var(--border) 25%, transparent); }
+        .fuse-tab { padding:5px 10px; font-size:11px; cursor:pointer; border-right:1px solid var(--border); opacity:.7; user-select:none; }
+        .fuse-tab.active { opacity:1; font-weight:600; }
+        .fuse-tab.ft-err { color:var(--err); }
+        .fuse-member { display:none; padding:8px 10px; max-height:260px; overflow:auto; }
+        .fuse-member.active { display:block; }
+        .fuse-judge { display:none; border-top:1px solid var(--border); padding:8px 10px; max-height:340px; overflow:auto; }
+        .fuse-judge.active { display:block; }
+        .fuse-judge-label { font-size:10.5px; color:var(--accent); font-weight:600; margin-bottom:4px; }
+        .fuse-merge-line { display:flex; align-items:center; gap:8px; margin:10px 0 6px; font-size:11px; color:var(--text-dim); white-space:nowrap; }
+        .fuse-merge-line::before, .fuse-merge-line::after { content:''; flex:1; border-top:1px dashed var(--border); }
+        .fuse-hist summary { cursor:pointer; font-size:11px; color:var(--text-dim); user-select:none; margin:4px 0; }
+        .fuse-hist .fh-item { border-left:2px solid var(--border); padding:4px 8px; margin:6px 0; font-size:12px; }
+        .fuse-hist .fh-item.fh-err { border-left-color:var(--err); color:var(--err); }
+        .fuse-hist .fh-name { font-size:10.5px; font-weight:600; opacity:.8; margin-bottom:2px; }
+</style>
 </head>
 <body>
 
@@ -494,6 +616,8 @@
         <span class="pill">🪙 合计 <b id="tokenBox">0</b> tokens</span>
         <span class="pill">📦 卡片 <b id="cardCount">0</b>/6</span>
 <span class="pill" id="billingPill" title="平台 Key 剩余 tokens（在计费管理中绑定）" style="display:none">💳 平台余额 <b id="billingBox">–</b></span>
+<span class="pill" id="exportBtn" title="导出当前全部卡片对话（Markdown / JSON / 复制）" style="cursor:pointer">⬇ 导出</span>
+<span class="pill" id="palaceBtn" title="记忆宫殿：全部对话思维导图（点击卡片查看完整历史）" style="cursor:pointer">🧠 记忆宫殿</span>
     </div>
     <div class="stage" id="stage"></div>
 </div>
@@ -718,6 +842,235 @@
         });
     }
 
+    // ================= 【多模型融合】卡片融合（契约 v1，后端 /chat/fuse/stream） =================
+    let fuseDragId = null;   // 正在拖拽的卡 task_id
+
+    function fuseModelsOf(t) { return t.fusion ? t.fusion.models.map(x => x.model_id) : [t.model_id]; }
+    function fuseLabelOfId(mid) { const m = MODELS.find(x => x.id === mid); return m ? m.label : mid; }
+    function fuseChainLabel(t) {
+        if (!t.fusion) return t.model_label || t.model_id;
+        const j = t.fusion.models.find(x => x.model_id === t.fusion.judgeModelId) || {};
+        return t.fusion.models.map(x => x.model_label).join(' + ') + '（裁判 ' + (j.model_label || t.fusion.judgeModelId) + '）';
+    }
+    function fuseCountRounds(t) { return (t.messages || []).filter(m => m.role === 'user').length; }
+
+    // 卡片头融合徽章：成员 chips + 裁判下拉
+    function renderFusionBadge(task) {
+        const card = $('card-' + task.task_id); if (!card) return;
+        const head = card.querySelector('.card-head'); if (!head) return;
+        let badge = head.querySelector('.fuse-badge');
+        if (!task.fusion) { if (badge) badge.remove(); return; }
+        if (!badge) {
+            badge = el('span', 'fuse-badge');
+            head.insertBefore(badge, head.querySelector('.c-status'));
+        }
+        badge.innerHTML = '';
+        task.fusion.models.forEach(x => {
+            badge.appendChild(el('span', 'fb-chip' + (x.model_id === task.fusion.judgeModelId ? ' fb-judge' : ''),
+                (x.model_id === task.fusion.judgeModelId ? '★' : '') + x.model_label));
+        });
+        const sel = el('select'); sel.title = '选择裁判模型（★ 合成最终答案）';
+        task.fusion.models.forEach(x => {
+            const o = el('option', null, '⚖ ' + x.model_label); o.value = x.model_id;
+            if (x.model_id === task.fusion.judgeModelId) o.selected = true;
+            sel.appendChild(o);
+        });
+        sel.addEventListener('change', () => {
+            task.fusion.judgeModelId = sel.value;
+            saveChats(); renderFusionBadge(task);
+            flashTitle('⚖ 裁判已切换为 ' + fuseLabelOfId(sel.value));
+        });
+        badge.appendChild(sel);
+    }
+
+    // 融合两张卡：模型并入 + 历史一并并入（用户确认）+ 被拖卡移除（后端上下文保留，不清）
+    function fuseTasks(dragId, targetId) {
+        const d = tasks.find(t => t.task_id === dragId), t = tasks.find(t => t.task_id === targetId);
+        if (!d || !t) return;
+        if (d.status === 'running' || t.status === 'running') { flashTitle('⚠ 正在回答中，等结束后再融合'); return; }
+        const merged = fuseModelsOf(t).slice();
+        let added = 0;
+        fuseModelsOf(d).forEach(mid => {
+            if (merged.includes(mid)) return;
+            if (merged.length >= 4) return;
+            merged.push(mid); added++;
+        });
+        if (!added) { flashTitle('⚠ 该卡的模型都已在这张融合卡里'); return; }
+        if (merged.length < 2) { flashTitle('⚠ 融合至少需要 2 个不同模型'); return; }
+
+        // 历史一并带过去：被拖卡消息追加到目标卡（带来源分隔线），两个 agent 的后端上下文都保留
+        if ((d.messages || []).length) {
+            t.messages.push({ role: 'fusion_merge', label: d.model_label || d.model_id });
+            d.messages.forEach(m => t.messages.push(m));
+            replayFusionMerge(t);
+        }
+
+        const tOrig = fuseModelsOf(t);
+        t.fusion = {
+            models: merged.map(mid => ({ model_id: mid, model_label: fuseLabelOfId(mid), source: tOrig.includes(mid) ? 'target' : 'dragged' })),
+            judgeModelId: (t.fusion && merged.includes(t.fusion.judgeModelId)) ? t.fusion.judgeModelId : t.model_id,
+            sinceRound: t.fusion ? t.fusion.sinceRound : fuseCountRounds(t) + 1,
+        };
+
+        // 移除被拖卡（不调 /reset——其 agent 记忆继续供融合使用）
+        d.status = 'removed';
+        const dcard = $('card-' + d.task_id);
+        if (dcard) { dcard.classList.add('fuse-out'); setTimeout(() => dcard.remove(), 260); }
+        const di = tasks.indexOf(d);
+        if (di >= 0) tasks.splice(di, 1);
+
+        renderFusionBadge(t);
+        saveChats(); renderModelList(); updateCounters();
+        try { updateStageRows(); } catch (e) {}
+        flashTitle('🧩 已融合 ' + merged.length + ' 个模型，裁判：' + fuseLabelOfId(t.fusion.judgeModelId));
+    }
+
+    // 融合发送轮 DOM：成员页签 + 裁判区
+    function buildFuseRunner(task) {
+        const wrap = el('div', 'fuse-wrap');
+        const tabsBox = el('div', 'fuse-tabs');
+        const bodies = {}, tabMap = {};
+        task.fusion.models.forEach((x, i) => {
+            const tab = el('div', 'fuse-tab' + (i === 0 ? ' active' : ''), x.model_label);
+            const body = el('div', 'fuse-member' + (i === 0 ? ' active' : ''));
+            const bd = el('div', 'md-body');
+            body.appendChild(bd);
+            tab.addEventListener('click', () => {
+                Object.keys(tabMap).forEach(k => tabMap[k].classList.remove('active'));
+                Object.keys(bodies).forEach(k => bodies[k].classList.remove('active'));
+                tab.classList.add('active'); body.classList.add('active');
+            });
+            tabsBox.appendChild(tab);
+            wrap.appendChild(body);
+            tabMap[x.model_id] = tab; bodies[x.model_id] = body;
+        });
+        const judgeBlock = el('div', 'fuse-judge');
+        const judgeLabel = el('div', 'fuse-judge-label', '⚖ 裁判合成（' + fuseLabelOfId(task.fusion.judgeModelId) + '）· 等待成员完成…');
+        const judgeBody = el('div', 'md-body');
+        judgeBlock.appendChild(judgeLabel); judgeBlock.appendChild(judgeBody);
+        wrap.appendChild(tabsBox); wrap.appendChild(judgeBlock);
+        const ctx = {
+            wrap, tabs: tabMap, bodies, judgeBlock, judgeBody, judgeLabel,
+            judgeStarted: false, doneCount: 0,
+            texts: {}, failed: [], tokens: { members: {}, judge: null },
+            full: '', judgeError: null,
+        };
+        return { wrap, bodyDiv: judgeBody, ctx };
+    }
+
+    // 融合 SSE 事件处理。返回 true = 已消化（调用方 continue）；false = 交给现有分支兜底
+    function handleFuseEvent(task, data, ctx) {
+        if (data.type === 'delta' && data.phase === 'member') {
+            ctx.texts[data.model_id] = (ctx.texts[data.model_id] || '') + (data.content || '');
+            const b = ctx.bodies[data.model_id];
+            if (b) {
+                b.innerHTML = renderMarkdown(ctx.texts[data.model_id]) + '<span class="cursor"></span>';
+                highlightIn(b);
+                b.scrollTop = b.scrollHeight;
+            }
+            return true;
+        }
+        if (data.type === 'usage' && data.phase === 'member') {
+            ctx.tokens.members[data.model_id] = data.tokens || null;
+            return true;
+        }
+        if (data.type === 'member_done') {
+            ctx.doneCount++;
+            const tab = ctx.tabs[data.model_id];
+            if (tab) {
+                if (data.ok) tab.innerHTML += ' ✓';
+                else { tab.innerHTML += ' ✖'; tab.classList.add('ft-err'); tab.title = data.error_msg || '成员失败'; }
+            }
+            if (!data.ok) ctx.failed.push({ model_id: data.model_id, error_msg: data.error_msg || '成员失败' });
+            if (ctx.doneCount >= task.fusion.models.length && !ctx.judgeStarted) {
+                // 全部成员结束 → 切到裁判区等待
+                Object.keys(ctx.tabs).forEach(k => ctx.tabs[k].classList.remove('active'));
+                Object.keys(ctx.bodies).forEach(k => ctx.bodies[k].classList.remove('active'));
+                ctx.judgeBlock.classList.add('active');
+                ctx.judgeBody.innerHTML = '<span class="cursor"></span>';
+            }
+            return true;
+        }
+        if (data.type === 'delta' && data.phase === 'judge') {
+            if (!ctx.judgeStarted) {
+                ctx.judgeStarted = true;
+                ctx.judgeLabel.textContent = '⚖ 裁判合成（' + fuseLabelOfId(task.fusion.judgeModelId) + '）· 可查证资料，稍慢';
+            }
+            ctx.full += data.content || '';
+            ctx.judgeBody.innerHTML = renderMarkdown(ctx.full) + '<span class="cursor"></span>';
+            highlightIn(ctx.judgeBody);
+            ctx.judgeBody.scrollTop = ctx.judgeBody.scrollHeight;
+            return true;
+        }
+        if (data.type === 'usage' && data.phase === 'judge') { ctx.tokens.judge = data.tokens || null; return true; }
+        if (data.type === 'judge_fallback') {
+            ctx.judgeError = data.error || '裁判失败';
+            ctx.judgeStarted = true;
+            ctx.judgeBlock.classList.add('active');
+            const firstOk = Object.keys(ctx.texts)[0];
+            ctx.full = firstOk !== undefined ? ctx.texts[firstOk] : '';
+            ctx.judgeBody.innerHTML = renderMarkdown('⚠ **裁判失败：' + ctx.judgeError + '**，以下为成员原始回答：\n\n' + ctx.full);
+            highlightIn(ctx.judgeBody);
+            return true;
+        }
+        if (data.type === 'done') {
+            if (data.content) ctx.full = data.content;
+            if (data.members) ctx.texts = data.members;
+            if (ctx.judgeStarted && ctx.full) ctx.judgeBody.innerHTML = renderMarkdown(ctx.full), highlightIn(ctx.judgeBody);
+            return true;
+        }
+        if (data.type === 'billing_warning') return true;   // 与单模型语义一致：可安全忽略
+        return false;
+    }
+
+    // 历史并入的实时回放（fuseTasks 调用；restore 走 renderHistoryMsg 共用渲染）
+    function replayFusionMerge(task) {
+        const chat = $('chat-' + task.task_id);
+        if (!chat) return;
+        const msgs = task.messages || [];
+        // 从后往前找本次并入的起点（最后一条 fusion_merge）
+        let start = msgs.length - 1;
+        while (start >= 0 && msgs[start].role !== 'fusion_merge') start--;
+        if (start < 0) return;
+        const line = el('div', 'fuse-merge-line', '⇊ 以下历史来自「' + (msgs[start].label || '被融合卡片') + '」⇊');
+        chat.appendChild(line);
+        for (let i = start + 1; i < msgs.length; i++) renderHistoryMsg(chat, msgs[i]);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    // 单条历史消息渲染（replayTaskMessages / replayFusionMerge 共用）
+    function renderHistoryMsg(chat, m) {
+        if (m.role === 'user') {
+            const ub = el('div', 'msg user');
+            ub.appendChild(el('div', 'ub-text', m.content || '📷 [图片消息]'));
+            chat.appendChild(ub);
+        } else if (m.role === 'assistant' && m.content) {
+            const ad = el('div', 'msg agent');
+            const bd = el('div', 'md-body');
+            bd.innerHTML = renderMarkdown(m.content);
+            highlightIn(bd);
+            ad.appendChild(bd);
+            if (Array.isArray(m.fusionDetail) && m.fusionDetail.length) {
+                const det = el('details', 'fuse-hist');
+                det.appendChild(el('summary', null, '🧩 融合记录 · ' + m.fusionDetail.length + ' 个模型原始回答'));
+                m.fusionDetail.forEach(x => {
+                    const it = el('div', 'fh-item' + (x.status === 'error' ? ' fh-err' : ''));
+                    it.appendChild(el('div', 'fh-name', (x.status === 'error' ? '✖ ' : '') + (x.model_label || x.model_id) +
+                        (x.error_msg ? '（' + x.error_msg + '）' : '')));
+                    const cb = el('div', 'md-body');
+                    cb.innerHTML = x.content ? renderMarkdown(x.content) : '（无输出）';
+                    if (x.content) highlightIn(cb);
+                    it.appendChild(cb);
+                    det.appendChild(it);
+                });
+                ad.appendChild(det);
+            }
+            chat.appendChild(ad);
+        } else if (m.role === 'fusion_merge') {
+            chat.appendChild(el('div', 'fuse-merge-line', '⇊ 以下历史来自「' + (m.label || '被融合卡片') + '」⇊'));
+        }
+    }
+
     // ================= 卡片 DOM =================
     function createCardDOM(task) {
         const card = el('div', 'card');
@@ -741,6 +1094,53 @@
 
         const chat = el('div', 'card-chat'); chat.id = 'chat-' + task.task_id;
         card.appendChild(chat);
+
+        // 【多模型融合】拖拽把手（Pointer Events 自定义拖拽：鼠标/触屏通用，不依赖原生 HTML5 DnD）
+        const dragHandle = el('span', 'c-drag', '⠿');
+        dragHandle.title = '拖到另一张卡上融合（历史一并并入，裁判默认 = 目标卡模型）';
+        dragHandle.addEventListener('pointerdown', e => {
+            if (e.button !== undefined && e.button !== 0) return;   // 仅左键/主指针
+            if (task.status === 'running') { flashTitle('⚠ 回答进行中，结束后再拖'); return; }
+            e.preventDefault();   // 防文字选择/原生拖拽
+            fuseDragId = task.task_id;
+            card.classList.add('dragging');
+            // 跟随指针的融合提示气泡
+            const ghost = el('div', 'fuse-ghost', '🧩 融合「' + (task.model_label || task.model_id) + '」');
+            document.body.appendChild(ghost);
+            ghost.style.left = (e.clientX + 14) + 'px';
+            ghost.style.top = (e.clientY + 14) + 'px';
+            try { dragHandle.setPointerCapture(e.pointerId); } catch (err) {}
+            let overCard = null;
+            const onMove = ev => {
+                if (!fuseDragId) return;
+                ghost.style.left = (ev.clientX + 14) + 'px';
+                ghost.style.top = (ev.clientY + 14) + 'px';
+                const under = document.elementFromPoint(ev.clientX, ev.clientY);
+                const target = under && under.closest ? under.closest('.card') : null;
+                if (overCard && overCard !== target) overCard.classList.remove('fusion-target');
+                overCard = (target && target !== card) ? target : null;
+                if (overCard) overCard.classList.add('fusion-target');
+            };
+            const onUp = ev => {
+                const doFuse = ev && ev.type !== 'pointercancel';
+                dragHandle.removeEventListener('pointermove', onMove);
+                dragHandle.removeEventListener('pointerup', onUp);
+                dragHandle.removeEventListener('pointercancel', onUp);
+                const from = fuseDragId, target = overCard;
+                fuseDragId = null;
+                card.classList.remove('dragging');
+                ghost.remove();
+                if (target) target.classList.remove('fusion-target');
+                if (doFuse && from && target) {
+                    const tid = (target.id || '').replace(/^card-/, '');
+                    if (tid && tid !== from) fuseTasks(from, tid);
+                }
+            };
+            dragHandle.addEventListener('pointermove', onMove);
+            dragHandle.addEventListener('pointerup', onUp);
+            dragHandle.addEventListener('pointercancel', onUp);
+        });
+        head.insertBefore(dragHandle, head.firstChild);
 
         // 图片预览条（仅 vision 模型显示）
         const previews = el('div', 'card-previews');
@@ -912,6 +1312,7 @@
         task.detached = true;
         updateCbTarget();
         if (!wasRunning) task.status = 'removed';   // 没在跑的直接移除
+        if (!wasRunning) saveChats();   // 【持久化】卡片被移除后同步移出存档，刷新不再复活
 
         renderModelList();
         updateCounters();
@@ -1031,17 +1432,25 @@
         }
         // 记忆里只存文本（图片不回灌历史，避免上下文膨胀）
         if (!isControl) task.messages.push({ role:'user', content: message });
+        if (!isControl) saveChats();   // 【持久化】用户消息即存，中途关页不丢
 
         // 发送后清空待发图片
         task.images = [];
         renderPreviews(task);
 
-        let agentDiv = null, bodyDiv = null;
+        let agentDiv = null, bodyDiv = null, fuseCtx = null;
         if (chat) {
             agentDiv = el('div', 'msg agent');
-            bodyDiv = el('div', 'md-body');
-            bodyDiv.innerHTML = '<span class="cursor"></span>';
-            agentDiv.appendChild(bodyDiv);
+            if (task.fusion) {
+                const fr = buildFuseRunner(task);   // 【多模型融合】成员页签 + 裁判区
+                agentDiv.appendChild(fr.wrap);
+                bodyDiv = fr.bodyDiv;               // 兜底错误显示落在裁判区
+                fuseCtx = fr.ctx;
+            } else {
+                bodyDiv = el('div', 'md-body');
+                bodyDiv.innerHTML = '<span class="cursor"></span>';
+                agentDiv.appendChild(bodyDiv);
+            }
             chat.appendChild(agentDiv);
             chat.scrollTop = chat.scrollHeight;
         }
@@ -1055,16 +1464,21 @@
         // 直接累加会把暂停前的 token 算两遍。控制类请求先记基线，只把增量计入会话统计。
         const tokenBaseline = isControl ? ((task.tokens && task.tokens.total) || 0) : 0;
         try {
-            const res = await fetch(API_URL, {
+            const res = await fetch(task.fusion ? '/chat/fuse/stream' : API_URL, {
                 method:'POST',
                 headers:{ 'Content-Type':'application/json' },
-                body: JSON.stringify({
-                    message: isControl ? '' : sendContent,
-                    user_id: USER_ID,
-                    model: task.model_id,
-                    resume: !!opts.resume,
-                    abandon: !!opts.abandon,
-                })
+                body: JSON.stringify(task.fusion ? {   // 【多模型融合】契约：FuseChatRequest（成员并答 + 裁判合成）
+                        message: isControl ? '' : sendContent,
+                        user_id: USER_ID,
+                        models: task.fusion.models.map(x => x.model_id),
+                        judge_model: task.fusion.judgeModelId,
+                    } : {
+                        message: isControl ? '' : sendContent,
+                        user_id: USER_ID,
+                        model: task.model_id,
+                        resume: !!opts.resume,
+                        abandon: !!opts.abandon,
+                    })
             });
             const reader = res.body.getReader();
             const decoder = new TextDecoder('utf-8');
@@ -1081,6 +1495,7 @@
                     let data;
                     try { data = JSON.parse(line.slice(6)); } catch(e) { continue; }
                     if (data.error) { task.error_msg = data.error; throw new Error(data.error); }
+                    if (task.fusion && fuseCtx && handleFuseEvent(task, data, fuseCtx)) continue;   // 【多模型融合】事件分流（成员/裁判/降级）
                     if (data.type === 'usage') {
                         turn = data.tokens || turn;
                         task.tokens = turn;
@@ -1112,8 +1527,31 @@
                 buffer = parts[parts.length-1] || '';
             }
 
-            const cleanContent = fullContent;   // 【P2-2】content 已不含暂停提示，无需剥离
-            if (cleanContent) task.messages.push({ role:'assistant', content: cleanContent });
+            const cleanContent = task.fusion ? ((fuseCtx && fuseCtx.full) || '') : fullContent;   // 【P2-2】content 已不含暂停提示，无需剥离
+            if (cleanContent) {
+                if (task.fusion && fuseCtx) {
+                    // 【多模型融合】入档：主内容 = 裁判答案，成员原始回答/失败信息进 fusionDetail
+                    const fd = task.fusion.models.map(x => {
+                        const f = fuseCtx.failed.find(ff => ff.model_id === x.model_id);
+                        return { model_id: x.model_id, model_label: x.model_label,
+                                 content: fuseCtx.texts[x.model_id] || '',
+                                 status: f ? 'error' : 'ok', error_msg: f ? f.error_msg : null,
+                                 tokens: fuseCtx.tokens.members[x.model_id] || null };
+                    });
+                    task.messages.push({ role:'assistant', content: cleanContent, fusionDetail: fd });
+                    if (fuseCtx.judgeError) { task.error_msg = fuseCtx.judgeError; task.status = 'error'; }   // 裁判失败：内容保留但标记失败（失败记忆可追溯）
+                    const _zt = o => o || { prompt:0, completion:0, total:0 };
+                    const _ms = Object.values(fuseCtx.tokens.members).map(_zt);
+                    const _js = _zt(fuseCtx.tokens.judge);
+                    turn = { prompt: _ms.reduce((a,b)=>a+b.prompt,0)+_js.prompt,
+                             completion: _ms.reduce((a,b)=>a+b.completion,0)+_js.completion,
+                             total: _ms.reduce((a,b)=>a+b.total,0)+_js.total };
+                    task.tokens = turn;
+                } else {
+                    task.messages.push({ role:'assistant', content: cleanContent });
+                }
+            }
+            saveChats();   // 【持久化】收到完整回复后保存对话
 
             if (bodyDiv) {
                 bodyDiv.innerHTML = renderMarkdown(cleanContent);
@@ -1156,9 +1594,24 @@
             task.status = 'error';
             task.error_msg = err.message;
             if (bodyDiv) bodyDiv.innerHTML = `<span style="color:var(--err)">❌ 出错：${err.message}</span>`;
+            if (task.fusion && fuseCtx) {
+                // 【多模型融合】异常中断也保留成员已产出内容（失败记忆可追溯）
+                const got = Object.keys(fuseCtx.texts).some(k => (fuseCtx.texts[k] || '').trim());
+                if (got) {
+                    const fd = task.fusion.models.map(x => {
+                        const f = fuseCtx.failed.find(ff => ff.model_id === x.model_id);
+                        return { model_id: x.model_id, model_label: x.model_label,
+                                 content: fuseCtx.texts[x.model_id] || '',
+                                 status: f ? 'error' : 'ok', error_msg: f ? f.error_msg : null,
+                                 tokens: fuseCtx.tokens.members[x.model_id] || null };
+                    });
+                    task.messages.push({ role:'assistant', content: '（本轮异常中断：' + err.message + '）', fusionDetail: fd });
+                }
+            }
         } finally {
             if (chat) chat.scrollTop = chat.scrollHeight;
             setCardStatus(task);
+            syncTaskMemory(task);   // 【后端记忆】成败都同步（失败带 error_msg 进记忆宫殿）
             renderModelList();
             updateCounters();
         }
@@ -1207,12 +1660,16 @@
     async function resetCard(taskId) {
         const task = tasks.find(t => t.task_id === taskId);
         if (!task) return;
-        if (!confirm(`确定重置「${task.model_label}」这个会话吗？\n将清空该卡的上下文与对话记录。`)) return;
+        if (!confirm(`确定重置「${task.fusion ? fuseChainLabel(task) : task.model_label}」这个会话吗？\n将清空该卡的上下文与对话记录。`)) return;
         try {
-            await fetch(
-                `${RESET_URL}?user_id=${encodeURIComponent(USER_ID)}&model=${encodeURIComponent(task.model_id)}`,
-                { method: 'POST' }
-            );
+            // 【多模型融合】重置融合卡 = 清所有成员 agent 的后端上下文
+            const resetTargets = task.fusion ? task.fusion.models.map(x => x.model_id) : [task.model_id];
+            for (const mid of resetTargets) {
+                await fetch(
+                    `${RESET_URL}?user_id=${encodeURIComponent(USER_ID)}&model=${encodeURIComponent(mid)}`,
+                    { method: 'POST' }
+                );
+            }
         } catch (e) {
             console.error('重置失败', e);
         }
@@ -1222,6 +1679,10 @@
         task.prompt_tokens = 0;
         task.completion_tokens = 0;
         task.paused = false;   // 【P1 配套】重置后解除暂停态，避免被 sendTask 护栏永久拦截
+        task.messages = [];    // 【持久化配套】后端上下文已清空，前端记忆同步清空
+        task.fusion = null; renderFusionBadge(task);   // 【多模型融合】重置即退出融合，回到单模型卡
+        saveChats();           // 【持久化配套】重置后同步清空该卡存档
+        syncTaskMemory(task);  // 【后端记忆】同步覆盖为空，后端记录一并清空
         setCardStatus(task);
         updateCounters();
     }
@@ -1360,6 +1821,78 @@
     })();
 
 
+    // ================= 【持久化】localStorage 会话存取 =================
+    // 契约：localStorage key = 'mt_chats_v1'
+    // 结构：{ version:1, savedAt:毫秒, cardSeq:number,
+    //         cards:[{ model_id, model_label, model_type, model_vision,
+    //                  messages:[{role:'user'|'assistant', content:string}], tokens:{prompt,completion,total} }] }
+    // 注意：图片（data_url）不入档，仅存文本历史，防止超出 5MB 配额。
+    const STORAGE_KEY = 'mt_chats_v1';
+
+    function loadArchive() {
+        try {
+            const a = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+            if (a && a.version === 1 && Array.isArray(a.cards)) return a;
+        } catch (e) { /* 存档损坏：当作无存档 */ }
+        return null;
+    }
+
+    // 保存当前所有有效卡片的对话（removed 卡自动排除；running 卡存已落库的历史）
+    function saveChats() {
+        try {
+            const cards = tasks
+                .filter(t => t.status !== 'removed' && t.messages.length > 0)
+                .map(t => ({
+                    model_id: t.model_id,
+                    model_label: t.model_label,
+                    model_type: t.type,
+                    model_vision: !!t.vision,
+                    messages: t.messages.slice(-200),   // 上限保护，防止单卡无限膨胀
+                    fusion: t.fusion || undefined,   // 【多模型融合】融合结构随存档（undefined 序列化时自动省略）
+                    tokens: t.tokens || { prompt:0, completion:0, total:0 },
+                }));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                version: 1, savedAt: Date.now(), cardSeq: cardSeq, cards: cards,
+            }));
+        } catch (e) {
+            console.warn('【持久化】保存失败（可能超 localStorage 配额）', e);
+        }
+    }
+
+    // 把已回填 messages 的 task 重放到 DOM（恢复时调用）
+    function replayTaskMessages(task) {
+        const chat = $('chat-' + task.task_id);
+        if (!chat) return;
+        task.messages.forEach(m => renderHistoryMsg(chat, m));   // 【融合配套】统一渲染（含 fusion_merge 分隔线 / fusionDetail 折叠区）
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    // 页面加载时恢复上次对话：逐卡 addCard → 回填 messages/tokens → 重放渲染
+    async function restoreChats() {
+        const archive = loadArchive();
+        if (!archive || !archive.cards.length) return;
+        cardSeq = archive.cardSeq || cardSeq;   // 续接 task_id 计数，避免同毫秒冲突
+        for (const c of archive.cards) {
+            // 优先匹配现役模型；模型已被删除则用存档元数据构造离线卡（历史仍可看）
+            const model = MODELS.find(m => m.id === c.model_id) || {
+                id: c.model_id,
+                label: c.model_label || c.model_id,
+                type: c.model_type || 'api',
+                vision: !!c.model_vision,
+            };
+            addCard(model);
+            const task = tasks[tasks.length - 1];
+            if (!task || task.model_id !== c.model_id) break;   // 卡位已满被拒时防错配
+            task.messages = Array.isArray(c.messages) ? c.messages : [];
+            task.fusion = c.fusion || null;   // 【多模型融合】融合结构恢复
+            if (task.fusion) renderFusionBadge(task);
+            task.tokens = c.tokens || { prompt:0, completion:0, total:0 };
+            replayTaskMessages(task);
+        }
+        updateStageRows();
+        if (archive.cards.length) flashTitle('💾 已恢复上次对话记录');
+    }
+
     // ================= 启动 =================
     async function refreshModels() {
         try {
@@ -1371,10 +1904,384 @@
         renderModelList();
     }
 
+    // ================= 【后端记忆】卡片对话同步到 /memory/chats（契约 v1，成败都同步） =================
+    async function syncTaskMemory(task) {
+        try {
+            if (!task || !task.task_id) return;
+            const msgs = (task.messages || [])
+                .filter(m => m && (m.role === 'user' || m.role === 'assistant') && (m.content || '').trim())
+                .map(m => ({ role: m.role, content: m.content }));
+            await fetch('/memory/chats', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: task.task_id, model_id: task.model_id || '',
+                    model_label: fuseChainLabel(task),   // 【多模型融合】融合卡链名：A + B（裁判 X）
+                    status: task.status === 'error' ? 'error' : 'ok',
+                    error_msg: task.status === 'error' ? (task.error_msg || '未知错误') : null,
+                    messages: msgs,
+                }),
+                keepalive: true,
+            });
+        } catch (e) { console.warn('[后端记忆] 同步失败（不影响本地存档）:', e); }
+    }
+
+    // ================= 【记忆宫殿】对话思维导图（数据源：后端 /memory/chats + 前端 tasks[].messages） =================
+    // 契约：window.palOpen() 打开；链 = 模型任务(task)，卡片 = 一轮问答（精简摘要）；点卡片 → 完整历史弹窗
+    const PAL_COLORS = ['#4f8cff', '#a06bff', '#ff8c42', '#2fbf8f', '#e5534b', '#d4a72c'];
+    const PAL_CW = 240, PAL_GAP = 90, PAL_ROW_H = 205, PAL_PAD_X = 155, PAL_PAD_Y = 60;
+    let palUI = null, palDragged = false;
+
+    function palEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    // 每个有消息的任务 = 一条链；messages 按 user/assistant 配对成一轮问答
+    function palBuildData() {
+        const chains = [];
+        tasks.forEach((t, ci) => {
+            if (t.status === 'removed') return;   // 已叉掉的卡片：与存档同步移出，不进记忆宫殿
+            const msgs = (t.messages || []).filter(m => m && (m.role === 'user' || m.role === 'assistant') && (m.content || '').trim());
+            if (!msgs.length) return;
+            const chain = { id: t.task_id, label: fuseChainLabel(t), color: PAL_COLORS[ci % PAL_COLORS.length], cards: [], enabled: true,
+                            status: t.status === 'error' ? 'error' : 'ok', errorMsg: t.error_msg || null,
+                            updatedAt: new Date().toISOString(), src: 'local' };
+            msgs.forEach(m => {
+                const last = chain.cards[chain.cards.length - 1];
+                if (m.role === 'user') chain.cards.push({ round: chain.cards.length + 1, qFull: m.content, aFull: '', pending: true });
+                else if (last && last.pending) { last.aFull = m.content; last.pending = false; }
+                else chain.cards.push({ round: chain.cards.length + 1, qFull: '', aFull: m.content, pending: false });
+            });
+            chains.push(chain);
+        });
+        return chains;
+    }
+
+    function palRender() {
+        const d = palUI, world = d.world;
+        world.querySelectorAll('.pal-card, .pal-chain-tag, .pal-world-empty').forEach(n => n.remove());
+        d.cards = []; d.byUid = {};
+        let maxX = 0;
+        d.chains.forEach((ch, ci) => {
+            const y = PAL_PAD_Y + ci * PAL_ROW_H;
+            const tag = el('div', 'pal-chain-tag');
+            tag.style.top = (y + 52) + 'px';
+            tag.innerHTML = '<span class="pal-dot" style="background:' + ch.color + '"></span><span class="pal-tag-t">' + palEsc(ch.label) + '</span><span class="pal-tag-n">' + ch.cards.length + ' 轮</span>';
+            if (ch.status === 'error') { tag.classList.add('failed'); tag.innerHTML = '⚠ ' + tag.innerHTML; }
+            world.appendChild(tag);
+            ch.cards.forEach((c, ri) => {
+                c.uid = ch.id + '#' + c.round; c.chain = ch;
+                c.x = PAL_PAD_X + ri * (PAL_CW + PAL_GAP); c.y = y;
+                maxX = Math.max(maxX, c.x + PAL_CW);
+                const failedRound = c.pending && ch.status === 'error';
+                const card = el('div', 'pal-card' + (c.pending ? ' pal-pending' : '') + (failedRound ? ' pal-error' : ''));
+                card.style.left = c.x + 'px'; card.style.top = c.y + 'px';
+                if (failedRound) card.title = ch.errorMsg || '发送失败';
+                const aTxt = c.aFull ? c.aFull.slice(0, 150)
+                    : (failedRound ? '✖ ' + ((ch.errorMsg || '发送失败') + '').slice(0, 110)
+                    : (c.pending ? '⏳ 等待回复…' : '（无回复内容）'));
+                card.innerHTML =
+                    '<div class="pal-ch"><span class="pal-dot" style="background:' + ch.color + '"></span><b>#' + c.round + '</b>' +
+                    '<span class="pal-open">完整 ↗</span></div>' +
+                    '<div class="pal-q"></div><div class="pal-a"></div>';
+                card.querySelector('.pal-q').textContent = '👤 ' + (c.qFull.slice(0, 90) || '（无文字）');
+                card.querySelector('.pal-a').textContent = '🤖 ' + aTxt;
+                card.addEventListener('click', () => { if (palDragged) return; palOpenHistory(ch, c.uid); });
+                c.node = card;
+                world.appendChild(card);
+                d.cards.push(c); d.byUid[c.uid] = c;
+            });
+        });
+        d.w = maxX + 180; d.h = PAL_PAD_Y + d.chains.length * PAL_ROW_H + 120;
+        if (!d.chains.length) {   // 【空库提示】后端+本地都无记忆时给出引导
+            const hint = el('div', 'pal-world-empty');
+            hint.innerHTML = '🫙 记忆库还是空的<br><b>在任意卡片聊一轮，对话会自动沉淀为宫殿的一条链</b><br>支持回溯历史记录 · 跨设备同步';
+            world.appendChild(hint);
+        }
+        const svg = d.edges;
+        svg.setAttribute('width', d.w); svg.setAttribute('height', d.h);
+        let sh = '';
+        d.chains.forEach(ch => ch.cards.forEach((c, ri) => {
+            if (!ri) return;
+            const pr = ch.cards[ri - 1], color = ch.color;
+            const x1 = pr.x + PAL_CW, y1 = pr.y + 70, x2 = c.x, y2 = c.y + 70, mx = (x1 + x2) / 2;
+            sh += '<path d="M ' + x1 + ' ' + y1 + ' C ' + mx + ' ' + y1 + ', ' + mx + ' ' + y2 + ', ' + x2 + ' ' + y2 + '" stroke="' + color + '" stroke-width="2" fill="none" opacity="0.6"/>';
+            sh += '<circle cx="' + x1 + '" cy="' + y1 + '" r="3.5" fill="' + color + '"/><circle cx="' + x2 + '" cy="' + y2 + '" r="3.5" fill="' + color + '"/>';
+        }));
+        svg.innerHTML = sh;
+        d.chipsBox.innerHTML = '';
+        d.chains.forEach(ch => {
+            const s = el('span', 'pal-chip');
+            s.innerHTML = '<span class="pal-dot" style="background:' + ch.color + '"></span>' + palEsc(ch.label);
+            s.addEventListener('click', () => { ch.enabled = !ch.enabled; s.classList.toggle('off', !ch.enabled); palSyncChainVis(); palDoSearch(); });
+            d.chipsBox.appendChild(s);
+        });
+        palSyncChainVis();
+    }
+
+    function palSyncChainVis() {
+        palUI.cards.forEach(c => c.node.classList.toggle('pal-dim', !c.chain.enabled || (palUI.failOnly && c.chain.status !== 'error')));
+    }
+
+    function palClamp(v, a, b) { const lo = Math.min(a, b), hi = Math.max(a, b); return Math.min(Math.max(v, lo), hi); }
+    function palApply() {
+        const d = palUI, cv = d.canvas;
+        d.v.x = palClamp(d.v.x, cv.clientWidth - d.w * d.v.s - 400, 400);
+        d.v.y = palClamp(d.v.y, cv.clientHeight - d.h * d.v.s - 400, 400);
+        d.world.style.transform = 'translate(' + d.v.x + 'px,' + d.v.y + 'px) scale(' + d.v.s + ')';
+        d.pct.textContent = Math.round(d.v.s * 100) + '%';
+    }
+    function palCenterOn(wx, wy, s2) {
+        const d = palUI, cv = d.canvas;
+        d.v.s = palClamp(s2 || d.v.s, 0.35, 1.8);
+        d.v.x = cv.clientWidth / 2 - wx * d.v.s; d.v.y = cv.clientHeight / 2 - wy * d.v.s;
+        d.world.classList.add('anim'); palApply();
+        setTimeout(() => d.world.classList.remove('anim'), 520);
+    }
+    function palFitView() {
+        const d = palUI, cv = d.canvas;
+        const s = palClamp(Math.min(cv.clientWidth / (d.w + 60), cv.clientHeight / (d.h + 60)), 0.35, 1.1);
+        palCenterOn(d.w / 2, d.h / 2, s);
+    }
+
+    function palBindCanvas() {
+        const d = palUI, cv = d.canvas; let pan = null;
+        cv.addEventListener('pointerdown', e => {
+            e.preventDefault();   // 禁选字/原生拖拽（click 不受影响）
+            palDragged = false;
+            if (e.target.closest && e.target.closest('.pal-card')) return;   // 卡片：点击→完整历史，不进入平移
+            pan = { mx: e.clientX, my: e.clientY, ox: d.v.x, oy: d.v.y, id: e.pointerId };
+            cv.classList.add('dragging');
+        });
+        window.addEventListener('pointermove', e => {
+            if (!pan || e.pointerId !== pan.id) return;
+            const dx = e.clientX - pan.mx, dy = e.clientY - pan.my;
+            if (Math.abs(dx) + Math.abs(dy) > 4) palDragged = true;
+            d.v.x = pan.ox + dx; d.v.y = pan.oy + dy; palApply();
+        });
+        window.addEventListener('pointerup', e => {
+            if (!pan || e.pointerId !== pan.id) return;
+            pan = null; cv.classList.remove('dragging');
+        });
+        window.addEventListener('pointercancel', () => { pan = null; cv.classList.remove('dragging'); });
+        cv.addEventListener('dragstart', e => e.preventDefault());
+        cv.addEventListener('contextmenu', e => e.preventDefault());
+        cv.addEventListener('wheel', e => {
+            e.preventDefault();
+            const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+            const wx = (mx - d.v.x) / d.v.s, wy = (my - d.v.y) / d.v.s;
+            d.v.s = palClamp(d.v.s * (e.deltaY < 0 ? 1.1 : 0.9), 0.35, 1.8);
+            d.v.x = mx - wx * d.v.s; d.v.y = my - wy * d.v.s;
+            d.world.classList.remove('anim'); palApply();
+        }, { passive: false });
+        $('palZoomIn').addEventListener('click', () => palCenterOn((cv.clientWidth / 2 - d.v.x) / d.v.s, (cv.clientHeight / 2 - d.v.y) / d.v.s, d.v.s * 1.2));
+        $('palZoomOut').addEventListener('click', () => palCenterOn((cv.clientWidth / 2 - d.v.x) / d.v.s, (cv.clientHeight / 2 - d.v.y) / d.v.s, d.v.s / 1.2));
+        $('palFit').addEventListener('click', palFitView);
+        d.input.addEventListener('input', () => { clearTimeout(d.deb); d.deb = setTimeout(palDoSearch, 180); });
+        d.input.addEventListener('keydown', e => { if (e.key === 'Enter') palDoSearch(); });
+    }
+
+    function palSnippet(text, kw) {
+        const i = text.toLowerCase().indexOf(kw.toLowerCase());
+        const a = Math.max(0, i - 24), b = Math.min(text.length, i + kw.length + 34);
+        return (a > 0 ? '…' : '') + palEsc(text.slice(a, i)) + '<mark>' + palEsc(text.slice(i, i + kw.length)) + '</mark>' + palEsc(text.slice(i + kw.length, b)) + (b < text.length ? '…' : '');
+    }
+    function palDoSearch() {
+        const d = palUI, kw = d.input.value.trim();
+        d.cards.forEach(c => c.node.classList.remove('hit', 'best'));
+        d.list.innerHTML = '';
+        if (!kw) { d.count.textContent = '输入关键词开始检索'; d.list.innerHTML = '<div class="pal-empty">输入关键词开始检索</div>'; return; }
+        const hits = d.cards.filter(c => c.chain.enabled).map(c => {
+            const qs = c.qFull.toLowerCase().split(kw.toLowerCase()).length - 1;
+            const as = c.aFull.toLowerCase().split(kw.toLowerCase()).length - 1;
+            return { c, score: qs * 3 + as * 2, inQ: qs > 0 };
+        }).filter(h => h.score > 0).sort((a, b) => b.score - a.score);
+        if (!hits.length) { d.count.textContent = '未命中任何卡片'; d.list.innerHTML = '<div class="pal-empty">没有匹配的记忆</div>'; return; }
+        d.count.textContent = '命中 ' + hits.length + ' 张卡片 · 最佳 → #' + hits[0].c.round + '（' + hits[0].c.chain.label + '）';
+        hits.forEach((h, i) => {
+            const item = el('div', 'pal-ritem' + (i === 0 ? ' is-best' : ''));
+            item.innerHTML = '<div class="pal-rhead">#' + h.c.round + ' · ' + palEsc(h.c.chain.label) + ' · 匹配 ' + h.score + '</div><div class="pal-rsnip">' + palSnippet(h.inQ ? h.c.qFull : h.c.aFull, kw) + '</div>';
+            item.addEventListener('click', () => palFocusCard(h.c));
+            d.list.appendChild(item);
+            h.c.node.classList.add('hit');
+        });
+        palFocusCard(hits[0].c);
+    }
+    function palFocusCard(c) {
+        palUI.cards.forEach(x => x.node.classList.remove('best'));
+        c.node.classList.remove('best'); void c.node.offsetWidth;
+        c.node.classList.add('best');
+        palCenterOn(c.x + PAL_CW / 2, c.y + 70, Math.max(palUI.v.s, 0.95));
+    }
+
+    function palBuildUI() {
+        const mask = el('div', 'pal-mask');
+        mask.innerHTML =
+            '<div class="pal-win">' +
+              '<div class="pal-top"><span class="pal-title">🧠 记忆宫殿 · 对话思维导图</span>' +
+              '<span class="pal-stat"></span><span class="pal-x">✕</span></div>' +
+              '<div class="pal-body">' +
+                '<div class="pal-canvas"><div class="pal-world"><svg class="pal-edges"></svg></div>' +
+                  '<div class="pal-zoom"><button id="palZoomOut">−</button><span id="palPct">100%</span><button id="palZoomIn">＋</button><button id="palFit">⌖</button></div>' +
+                  '<div class="pal-legend">链条 = 模型对话 · 卡片 = 一轮问答 · 时间从左到右<br>⚠ 红虚线卡 = 发送失败的记忆 · 点击卡片查看完整历史<br>拖拽平移 · 滚轮缩放 · 数据存后端，跨设备可查</div>' +
+                '</div>' +
+                '<div class="pal-side">' +
+                  '<div class="pal-shead">🔍 记忆检索<span class="pal-failbtn" title="画布上只突出显示有发送失败的链">⚠ 只看失败</span></div>' +
+                  '<input class="pal-input" placeholder="关键词搜索全部记忆，回车定位最佳">' +
+                  '<div class="pal-chips"></div>' +
+                  '<div class="pal-count">输入关键词开始检索</div>' +
+                  '<div class="pal-list"><div class="pal-empty">输入关键词开始检索</div></div>' +
+                '</div>' +
+              '</div></div>';
+        document.body.appendChild(mask);
+        palUI = {
+            mask, world: mask.querySelector('.pal-world'), canvas: mask.querySelector('.pal-canvas'),
+            edges: mask.querySelector('.pal-edges'), chipsBox: mask.querySelector('.pal-chips'),
+            list: mask.querySelector('.pal-list'), count: mask.querySelector('.pal-count'),
+            input: mask.querySelector('.pal-input'), pct: mask.querySelector('#palPct'),
+            stat: mask.querySelector('.pal-stat'), v: { x: 0, y: 0, s: 0.9 },
+            chains: [], cards: [], byUid: {}, histMask: null, deb: null,
+            failOnly: false, failBtn: mask.querySelector('.pal-failbtn'),
+        };
+        palBindCanvas();
+        palUI.failBtn.addEventListener('click', () => {   // 【失败记忆】只看失败链
+            palUI.failOnly = !palUI.failOnly;
+            palUI.failBtn.classList.toggle('on', palUI.failOnly);
+            palSyncChainVis();
+        });
+        mask.querySelector('.pal-x').addEventListener('click', palClose);
+        mask.addEventListener('pointerdown', e => { if (e.target === mask) palClose(); });
+        document.addEventListener('keydown', palKeyHandler);
+    }
+
+    function palKeyHandler(e) {
+        if (e.key !== 'Escape') return;
+        if (palUI && palUI.histMask) { palCloseHistory(); return; }
+        if (palUI && palUI.mask.classList.contains('show')) palClose();
+    }
+
+    // 点卡片 → 完整历史弹窗（该模型全部消息），并滚动定位到点击的那一轮
+    function palOpenHistory(chain, focusUid) {
+        palCloseHistory();
+        const total = chain.cards.filter(c => c.qFull).length + chain.cards.filter(c => c.aFull).length;
+        const mask = el('div', 'pal-mask hist');
+        mask.innerHTML = '<div class="pal-hmodal"><div class="modal-head"><span>🧠 ' + palEsc(chain.label) + ' · 完整历史（' + total + ' 条消息）</span><span class="modal-x">✕</span></div><div class="pal-hbody"></div></div>';
+        const body = mask.querySelector('.pal-hbody');
+        chain.cards.forEach(c => {
+            if (c.qFull) {
+                const m = el('div', 'pal-hmsg user');
+                m.dataset.uid = c.uid;
+                const h = el('div', 'pal-hhead', '👤 用户 · #' + c.round);
+                const b = el('div', 'pal-hu'); b.textContent = c.qFull;
+                m.appendChild(h); m.appendChild(b);
+                if (c.pending) { const w = el('div', 'pal-hwait', '⏳ 本轮尚未收到回复'); m.appendChild(w); }
+                body.appendChild(m);
+                if (c.pending && chain.status === 'error') {
+                    body.appendChild(el('div', 'pal-herr', '✖ 发送失败：' + (chain.errorMsg || '未知错误')));
+                }
+            }
+            if (c.aFull) {
+                const m = el('div', 'pal-hmsg bot');
+                m.dataset.uid = c.uid;
+                const h = el('div', 'pal-hhead', '🤖 ' + chain.label + ' · #' + c.round);
+                const b = el('div', 'pal-ha'); b.innerHTML = renderMarkdown(c.aFull);
+                m.appendChild(h); m.appendChild(b);
+                body.appendChild(m);
+            }
+        });
+        document.body.appendChild(mask);
+        requestAnimationFrame(() => mask.classList.add('show'));
+        mask.querySelector('.modal-x').addEventListener('click', palCloseHistory);
+        mask.addEventListener('pointerdown', e => { if (e.target === mask) palCloseHistory(); });
+        palUI.histMask = mask;
+        if (focusUid) {
+            let node = null;
+            body.querySelectorAll('.pal-hmsg').forEach(n => { if (!node && n.dataset.uid === focusUid) node = n; });
+            if (node) requestAnimationFrame(() => { node.scrollIntoView({ block: 'center' }); node.classList.add('hl'); });
+        }
+    }
+    function palCloseHistory() {
+        if (palUI && palUI.histMask) { palUI.histMask.remove(); palUI.histMask = null; }
+    }
+
+    // 【后端记忆】拉取 /memory/chats 并与本地合并：本地活跃卡永远最新；后端补充已叉掉的卡与其他设备的记录
+    function palPullBackend() {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 6000);
+        fetch('/memory/chats?limit=300', { signal: ctrl.signal })
+            .then(r => r.json())
+            .then(res => {
+                clearTimeout(timer);
+                if (!res || !res.ok || !res.data || !Array.isArray(res.data.chats)) return;
+                palMergeBackend(res.data.chats);
+            })
+            .catch(() => clearTimeout(timer));   // 后端不可用：静默保留本地记忆
+    }
+
+    function palMergeBackend(chats) {
+        const d = palUI;
+        if (!d) return;
+        const byId = {};
+        d.chains.forEach(c => byId[c.id] = c);
+        chats.forEach(rec => {
+            const msgs = (rec.messages || []).filter(m => m && (m.role === 'user' || m.role === 'assistant') && (m.content || '').trim());
+            if (!msgs.length) return;
+            const local = byId[rec.chat_id];
+            if (local && local.src === 'local') {   // 活跃卡：本地为最新，只补状态与时间
+                if (rec.updated_at && rec.updated_at > (local.updatedAt || '')) local.updatedAt = rec.updated_at;
+                if (rec.status === 'error' && !local.errorMsg) { local.status = 'error'; local.errorMsg = rec.error_msg; }
+                return;
+            }
+            const chain = {
+                id: rec.chat_id, label: rec.model_label || rec.model_id || rec.chat_id,
+                color: PAL_COLORS[0], cards: [], enabled: true,
+                status: rec.status === 'error' ? 'error' : 'ok', errorMsg: rec.error_msg || null,
+                updatedAt: rec.updated_at || '', src: 'backend',
+            };
+            msgs.forEach(m => {
+                const last = chain.cards[chain.cards.length - 1];
+                if (m.role === 'user') chain.cards.push({ round: chain.cards.length + 1, qFull: m.content, aFull: '', pending: true });
+                else if (last && last.pending) { last.aFull = m.content; last.pending = false; }
+                else chain.cards.push({ round: chain.cards.length + 1, qFull: '', aFull: m.content, pending: false });
+            });
+            byId[rec.chat_id] = chain;
+        });
+        d.chains = Object.values(byId).sort((a, b) => (Date.parse(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || 0));
+        d.chains.forEach((c, i) => { c.color = PAL_COLORS[i % PAL_COLORS.length]; });   // 重排后重发调色板
+        if (!d.mask.classList.contains('show')) return;   // 弹窗已关：仅更新缓存，下次打开生效
+        const kw = d.input.value.trim();
+        palRender();
+        d.stat.textContent = d.chains.length
+            ? d.chains.length + ' 条链 · ' + d.cards.length + ' 张卡片 · 数据源：后端记忆 + 本地会话'
+            : '后端记忆库暂无档案：在卡片里聊一轮即自动沉淀到这里';
+        if (kw) palDoSearch();
+    }
+
+    function palOpen() {
+        const chains = palBuildData();
+        if (!palUI) palBuildUI();
+        palUI.chains = chains;
+        palUI.input.value = '';
+        palUI.count.textContent = '输入关键词开始检索';
+        palUI.list.innerHTML = '<div class="pal-empty">输入关键词开始检索</div>';
+        palRender();
+        palUI.stat.textContent = chains.length
+            ? chains.length + ' 条链 · ' + palUI.cards.length + ' 张卡片 · 数据源：本地会话记忆（正在拉取后端…）'
+            : '正在从后端记忆库加载历史档案…';
+        palUI.mask.classList.add('show');
+        setTimeout(palFitView, 40);   // 布局完成后再自适应全览
+        palPullBackend();             // 【后端记忆】不再设本地闸门：打开即拉取，没聊天也能看历史
+    }
+
+
+    function palClose() { if (palUI) { palUI.mask.classList.remove('show'); palCloseHistory(); } }
+
+    window.palOpen = palOpen;   // 契约入口
+    $('palaceBtn').addEventListener('click', palOpen);
+
     async function boot() {
         try { const saved = localStorage.getItem('mt_theme'); if (saved) setTheme(saved); } catch(e){}
         ensureEmptyHint();
         await refreshModels();
+        await restoreChats();   // 【持久化】模型就绪后恢复上次对话
         loadBalances();  // 【计费P1】模型就绪后拉一次上游余额
         updateStageRows();
         updateCounters();
@@ -1419,6 +2326,13 @@
             <button class="primary" id="amSubmit">确认接入</button>
         </div>
     </div>
+</div>
+
+<!-- ============ 【导出P1】导出格式 mini 菜单（fixed 定位，挂在导出按钮下） ============ -->
+<div id="exportMenu">
+    <div class="ex-item" data-fmt="md">⬇ 下载 Markdown</div>
+    <div class="ex-item" data-fmt="json">{ } 下载 JSON</div>
+    <div class="ex-item" data-fmt="copy">📋 复制全文</div>
 </div>
 
 <!-- ============ 弹窗：计费管理 ============ -->
@@ -1599,7 +2513,133 @@
                         } else { pill.style.display = 'none'; }
                     }).catch(function () {});
             }
-            window.refreshBillPill = refreshBillPill;
+            // ================= 【导出P1】一键导出当前对话（纯前端，零后端依赖） =================
+    // task.messages 字段契约（533 行冻结注释）：[{role:'user'|'assistant', content:string}]
+    // ExportPayload = { schema:'mt.export.v1', exported_at:int, platform:string,
+    //   session_tokens:int, threads:[{task_id, model_id, model_label, status,
+    //   tokens:{prompt,completion,total}, messages:[{role,content}]}] }
+    var EXPORT_STATUS_CN = { idle:'待机', running:'生成中', done:'完成', error:'出错', removed:'已移除' };
+    function pad2(n) { return (n < 10 ? '0' : '') + n; }
+    function fmtDateTime(d) {
+        return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate())
+            + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+    }
+    function stampName() {
+        var d = new Date();
+        return '' + d.getFullYear() + pad2(d.getMonth()+1) + pad2(d.getDate())
+            + '_' + pad2(d.getHours()) + pad2(d.getMinutes()) + pad2(d.getSeconds());
+    }
+    function showToast(text, ok) {
+        var t = document.getElementById('toast');
+        if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
+        t.textContent = text;
+        t.className = 'show';
+        if (ok === false) t.style.borderLeftColor = 'var(--err)'; else t.style.borderLeftColor = '';
+        clearTimeout(t._tm);
+        t._tm = setTimeout(function () { t.className = ''; }, 2000);
+    }
+    /** 组装导出数据；无任何含消息的卡片时返回 null */
+    function buildExportPayload() {
+        var threads = (tasks || []).filter(function (t) { return t.messages && t.messages.length; });
+        if (!threads.length) return null;
+        return {
+            schema: 'mt.export.v1',
+            exported_at: Math.floor(Date.now() / 1000),
+            platform: '多模型编排平台',
+            session_tokens: sessionTokens || 0,
+            threads: threads.map(function (t) {
+                return {
+                    task_id: t.task_id, model_id: t.model_id,
+                    model_label: t.model_label || t.model_id, status: t.status,
+                    tokens: t.tokens || { prompt: 0, completion: 0, total: 0 },
+                    messages: t.messages.filter(function (m) { return (m.role === 'user' || m.role === 'assistant') && m.content; }).map(function (m) { return { role: m.role, content: m.content }; })
+                };
+            })
+        };
+    }
+    /** ExportPayload → Markdown 文本（用户消息折叠为引用块，助手消息保留原文渲染） */
+    function exportToMarkdown(p) {
+        var head = '# 对话导出\n\n'
+            + '- 导出时间：' + fmtDateTime(new Date(p.exported_at * 1000)) + '\n'
+            + '- 平台：' + p.platform + '\n'
+            + '- 卡片：' + p.threads.length + ' ｜ 累计 tokens：' + (p.session_tokens || 0) + '\n\n---\n\n';
+        var body = p.threads.map(function (t) {
+            var lines = ['## 🤖 ' + (t.model_label || t.model_id)
+                + '（' + (EXPORT_STATUS_CN[t.status] || t.status) + ' · ' + ((t.tokens && t.tokens.total) || 0) + ' tokens）\n'];
+            t.messages.filter(function (m) { return (m.role === 'user' || m.role === 'assistant') && m.content; }).forEach(function (m) {
+                if (m.role === 'user') {
+                    lines.push('**👤 用户**\n');
+                    lines.push(m.content.split('\n').map(function (l) { return '> ' + l; }).join('\n') + '\n');
+                } else {
+                    lines.push('**🤖 助手**\n');
+                    lines.push(m.content + '\n');
+                }
+            });
+            return lines.join('\n');
+        }).join('\n---\n\n');
+        return head + body;
+    }
+    function downloadTextFile(filename, content, mime) {
+        var blob = new Blob([content], { type: (mime || 'text/plain') + ';charset=utf-8' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+    }
+    /**
+     * 【导出P1】导出当前会话（唯一入口，供菜单与控制台调用）
+     * @param {'md'|'json'|'copy'} fmt
+     * @returns {Promise<{ok:boolean, filename?:string, error?:string|null}>}
+     */
+    async function exportSession(fmt) {
+        closeExportMenu();
+        var p = buildExportPayload();
+        if (!p) { showToast('当前没有可导出的对话（所有卡片都是空的）', false); return { ok: false, error: 'empty' }; }
+        var ts = stampName();
+        if (fmt === 'json') {
+            var fn = '对话导出_' + ts + '.json';
+            downloadTextFile(fn, JSON.stringify(p, null, 2), 'application/json');
+            showToast('✅ 已导出 JSON（' + p.threads.length + ' 张卡片）');
+            return { ok: true, filename: fn };
+        }
+        var md = exportToMarkdown(p);
+        if (fmt === 'copy') {
+            try { await navigator.clipboard.writeText(md); showToast('✅ 全文已复制到剪贴板'); return { ok: true }; }
+            catch (e) { showToast('❌ 复制失败：' + e, false); return { ok: false, error: String(e) }; }
+        }
+        var fn2 = '对话导出_' + ts + '.md';
+        downloadTextFile(fn2, md, 'text/markdown');
+        showToast('✅ 已导出 Markdown（' + p.threads.length + ' 张卡片）');
+        return { ok: true, filename: fn2 };
+    }
+    function openExportMenu() {
+        var menu = document.getElementById('exportMenu'), btn = document.getElementById('exportBtn');
+        if (!menu || !btn) return;
+        if (menu.classList.contains('show')) { closeExportMenu(); return; }
+        var r = btn.getBoundingClientRect();
+        menu.style.top = (r.bottom + 6) + 'px';
+        menu.style.left = 'auto';
+        menu.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+        menu.classList.add('show');
+    }
+    function closeExportMenu() { var m = document.getElementById('exportMenu'); if (m) m.classList.remove('show'); }
+    (function bindExport() {
+        var btn = document.getElementById('exportBtn');
+        if (btn) btn.addEventListener('click', function (e) { e.stopPropagation(); openExportMenu(); });
+        var menu = document.getElementById('exportMenu');
+        if (menu) menu.querySelectorAll('.ex-item').forEach(function (it) {
+            it.addEventListener('click', function () { exportSession(it.getAttribute('data-fmt')); });
+        });
+        document.addEventListener('click', function (e) {
+            var m = document.getElementById('exportMenu');
+            if (m && m.classList.contains('show') && !m.contains(e.target) && e.target.id !== 'exportBtn') closeExportMenu();
+        });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeExportMenu(); });
+    })();
+    window.exportSession = exportSession;       // 暴露：控制台可 await exportSession('md')
+    window.buildExportPayload = buildExportPayload;
+    window.refreshBillPill = refreshBillPill;
 
             function myBalance() {
                 var key = getStored(BK_LS);

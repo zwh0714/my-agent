@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🤖 多模型任务台</title>
+    <title>多模型任务台</title>
 
     <!-- 本地依赖（离线可用，不依赖外网 CDN） -->
     <script src="/static/vendor/marked.min.js"></script>
@@ -11,13 +11,13 @@
     <script src="/static/vendor/highlight.min.js" onerror="window.__noHLJS=1"></script>
 
     <style>
-        /* ============ 主题变量 ============ */
+        /* ============ 主题变量（主色：浅蓝） ============ */
         :root[data-theme="light"] {
-            --bg:#f6f8fa; --panel:#ffffff; --panel-2:#f0f3f6; --border:#d0d7de;
-            --text:#1f2328; --text-dim:#656d76; --accent:#0969da; --accent-2:#218bff;
-            --user-bubble:#0969da; --user-text:#fff; --agent-bubble:#f6f8fa;
-            --ok:#1a7f37; --warn:#9a6700; --err:#cf222e; --busy:#0969da;
-            --code-bg:#f0f3f6; --code-text:#cf222e; --shadow:rgba(31,35,40,.08);
+            --bg:#f4f8fd; --panel:#ffffff; --panel-2:#eef4fb; --border:#d4e2f1;
+            --text:#1c2733; --text-dim:#5f7185; --accent:#3d8bfd; --accent-2:#7ab5ff;
+            --user-bubble:#3d8bfd; --user-text:#fff; --agent-bubble:#f2f7fd;
+            --ok:#1a7f37; --warn:#9a6700; --err:#cf222e; --busy:#3d8bfd;
+            --code-bg:#eef4fb; --code-text:#c7254e; --shadow:rgba(31,60,100,.08);
         }
         :root[data-theme="dark"] {
             --bg:#0d1117; --panel:#161b22; --panel-2:#21262d; --border:#30363d;
@@ -33,9 +33,42 @@
             --ok:#5a7d2a; --warn:#a16207; --err:#b91c1c; --busy:#b45309;
             --code-bg:#efe6cf; --code-text:#b91c1c; --shadow:rgba(67,52,34,.12);
         }
+        :root[data-theme="ocean"] {   /* 海洋 · 深蓝 */
+            --bg:#0a1424; --panel:#0f1e36; --panel-2:#152948; --border:#22406b;
+            --text:#dcebff; --text-dim:#7f9cc0; --accent:#5eb3f6; --accent-2:#8fccff;
+            --user-bubble:#2f6fb3; --user-text:#fff; --agent-bubble:#132743;
+            --ok:#3fb950; --warn:#d29922; --err:#f85149; --busy:#5eb3f6;
+            --code-bg:#0f1e36; --code-text:#8fccff; --shadow:rgba(0,0,0,.45);
+        }
+        :root[data-theme="mint"] {    /* 薄荷 · 清绿 */
+            --bg:#f2faf7; --panel:#ffffff; --panel-2:#e6f5ee; --border:#c5e5d6;
+            --text:#183430; --text-dim:#5b8277; --accent:#14a374; --accent-2:#4ecf9f;
+            --user-bubble:#14a374; --user-text:#fff; --agent-bubble:#f0faf6;
+            --ok:#1a7f37; --warn:#9a6700; --err:#cf222e; --busy:#14a374;
+            --code-bg:#e6f5ee; --code-text:#b3245c; --shadow:rgba(20,80,60,.08);
+        }
+        :root[data-theme="sakura"] {  /* 樱粉 · 柔粉 */
+            --bg:#fbf5f8; --panel:#ffffff; --panel-2:#f7ebf1; --border:#eed4e0;
+            --text:#3d2430; --text-dim:#94707f; --accent:#e0568b; --accent-2:#f38ab0;
+            --user-bubble:#e0568b; --user-text:#fff; --agent-bubble:#faf1f5;
+            --ok:#1a7f37; --warn:#9a6700; --err:#cf222e; --busy:#e0568b;
+            --code-bg:#f7ebf1; --code-text:#b3245c; --shadow:rgba(90,40,60,.08);
+        }
+        :root[data-theme="violet"] {  /* 暮紫 · 暗紫 */
+            --bg:#120f22; --panel:#191531; --panel-2:#221d42; --border:#332c5e;
+            --text:#e9e5fb; --text-dim:#9c94c6; --accent:#9d7bff; --accent-2:#bda5ff;
+            --user-bubble:#5f48b8; --user-text:#fff; --agent-bubble:#1e1939;
+            --ok:#3fb950; --warn:#d29922; --err:#f85149; --busy:#9d7bff;
+            --code-bg:#191531; --code-text:#bda5ff; --shadow:rgba(0,0,0,.45);
+        }
 
         * { margin:0; padding:0; box-sizing:border-box; }
         :root { --ease-flow: cubic-bezier(.22,.61,.36,1); }
+
+        /* ---- 简约线性图标（SVG symbol 方案） ---- */
+        .ic { width:1em; height:1em; display:inline-block; vertical-align:-0.13em;
+              fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
+        .theme-row { flex-wrap:wrap; }
         body {
             font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background:var(--bg); color:var(--text);
@@ -474,7 +507,14 @@
         .cb-row button:hover:not(:disabled) { background:var(--accent-2); }
         .cb-row button:disabled { opacity:.5; cursor:not-allowed; }
             /* ================= 【记忆宫殿】对话思维导图 ================= */
-        .pal-mask { position:fixed; inset:0; z-index:1000; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); }
+        /* 【话题分叉】视图切换 & 分叉标记 */
+    .pal-viewbtns { display:inline-flex; gap:6px; margin-left:12px; }
+    .pal-vbtn { font-size:11px; padding:4px 10px; border-radius:14px; border:1px solid var(--border); background:var(--panel); color:var(--text-dim); cursor:pointer; display:inline-flex; align-items:center; gap:5px; }
+    .pal-vbtn:hover { border-color:var(--accent); color:var(--text); }
+    .pal-vbtn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .pal-chatbadge { font-size:9.5px; color:var(--text-dim); border:1px solid var(--border); border-radius:8px; padding:0 5px; margin-left:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:76px; }
+    .pal-forkmark { font-size:9.5px; padding:1px 6px; border-radius:8px; border:1px dashed var(--accent); color:var(--accent); display:inline-flex; align-items:center; gap:2px; }
+    .pal-mask { position:fixed; inset:0; z-index:1000; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); }
         .pal-mask.show { display:flex; }
         .pal-mask.hist { z-index:1100; }
         .pal-win { width:94vw; height:90vh; background:var(--panel); border:1px solid var(--border); border-radius:14px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 30px 90px rgba(0,0,0,.45); }
@@ -590,20 +630,50 @@
 </head>
 <body>
 
+<!-- ============ 简约线性图标库（SVG symbol，颜色跟随 currentColor） ============ -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-card" viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19M6 15h4"/></symbol>
+    <symbol id="i-brain" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="19" cy="12" r="2"/><path d="M6.8 10.6l3.6-4M13.6 6.6l3.6 4M6.8 13.4l3.6 4M13.6 17.4l3.6-4M7 12h10"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v10M7.5 10.5L12 15l4.5-4.5M5 19h14"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M3 16l5-4 4 3 3.5-3L21 16.5"/></symbol>
+    <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9 8l3 4 3-4M12 12v5M9.5 13.5h5M9.5 15.5h5"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M4 8l8-4 8 4v9l-8 4-8-4z M4 8l8 4 8-4 M12 12v9"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.5"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v5M14 11v5"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M15.5 12.5H21v3h-5.5a1.5 1.5 0 0 1 0-3z"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3.5L21 19.5H3z M12 9.5v4.5M12 17.1v.4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.5 3.6-5.5 7-5.5s6.2 2 7 5.5"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="10" rx="2.5"/><circle cx="9.5" cy="13" r="1"/><circle cx="14.5" cy="13" r="1"/><path d="M12 8V4.5M12 3.5v1"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8L21 21"/></symbol>
+    <symbol id="i-fork" viewBox="0 0 24 24"><path d="M6 6v12M6 9a9 9 0 0 0 9 9"/><circle cx="6" cy="4.5" r="1.8"/><circle cx="18" cy="6" r="1.8"/><path d="M18 8a8 8 0 0 1-3.5 6.2"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M9 20h6M12 16v4"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M4 10h9a5 5 0 0 1 0 10h-3M4 10l4-4M4 10l4 4"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5"/></symbol>
+    <symbol id="i-chain" viewBox="0 0 24 24"><circle cx="4" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="20" cy="12" r="1.8"/><path d="M5.8 12h4.4M13.8 12h4.4"/></symbol>
+</svg>
+
 <!-- ============ 左侧模型列表 ============ -->
 <aside class="sidebar">
     <div class="sidebar-head">
-        <h1>🤖 多模型任务台</h1>
+        <h1><svg class="ic" style="width:1.1em;height:1.1em"><use href="#i-bot"/></svg> 多模型任务台</h1>
         <div class="sub">点击模型 → 流入大屏</div>
     </div>
     <div class="sidebar-actions">
-        <button class="sid-btn" id="btnAddModel">➕ 接入模型</button>
-<button class="sid-btn" id="btnBilling">💳 计费管理</button>
+        <button class="sid-btn" id="btnAddModel"><svg class="ic"><use href="#i-plus"/></svg> 接入模型</button>
+<button class="sid-btn" id="btnBilling"><svg class="ic"><use href="#i-card"/></svg> 计费管理</button>
     </div>
     <div class="theme-row">
         <button class="theme-btn active" data-theme="light">亮色</button>
         <button class="theme-btn" data-theme="dark">暗色</button>
         <button class="theme-btn" data-theme="sepia">护眼</button>
+        <button class="theme-btn" data-theme="ocean">海洋</button>
+        <button class="theme-btn" data-theme="mint">薄荷</button>
+        <button class="theme-btn" data-theme="sakura">樱粉</button>
+        <button class="theme-btn" data-theme="violet">暮紫</button>
     </div>
     <div class="model-list" id="modelList"></div>
 </aside>
@@ -613,11 +683,11 @@
     <div class="topbar">
         <h2 id="stageTitle">大屏对比区</h2>
         <span class="spacer"></span>
-        <span class="pill">🪙 合计 <b id="tokenBox">0</b> tokens</span>
-        <span class="pill">📦 卡片 <b id="cardCount">0</b>/6</span>
-<span class="pill" id="billingPill" title="平台 Key 剩余 tokens（在计费管理中绑定）" style="display:none">💳 平台余额 <b id="billingBox">–</b></span>
-<span class="pill" id="exportBtn" title="导出当前全部卡片对话（Markdown / JSON / 复制）" style="cursor:pointer">⬇ 导出</span>
-<span class="pill" id="palaceBtn" title="记忆宫殿：全部对话思维导图（点击卡片查看完整历史）" style="cursor:pointer">🧠 记忆宫殿</span>
+        <span class="pill"><svg class="ic"><use href="#i-coin"/></svg> 合计 <b id="tokenBox">0</b> tokens</span>
+        <span class="pill"><svg class="ic"><use href="#i-box"/></svg> 卡片 <b id="cardCount">0</b>/6</span>
+<span class="pill" id="billingPill" title="平台 Key 剩余 tokens（在计费管理中绑定）" style="display:none"><svg class="ic"><use href="#i-card"/></svg> 平台余额 <b id="billingBox">–</b></span>
+<span class="pill" id="exportBtn" title="导出当前全部卡片对话（Markdown / JSON / 复制）" style="cursor:pointer"><svg class="ic"><use href="#i-download"/></svg> 导出</span>
+<span class="pill" id="palaceBtn" title="记忆宫殿：全部对话思维导图（点击卡片查看完整历史）" style="cursor:pointer"><svg class="ic"><use href="#i-brain"/></svg> 记忆宫殿</span>
     </div>
     <div class="stage" id="stage"></div>
 </div>
@@ -627,7 +697,7 @@
     <div class="cb-thumbs" id="cbThumbs"></div>
     <div class="cb-tools">
         <label class="cb-attach" title="发送图片给所有模型识别">
-            🖼️
+            <svg class="ic" style="width:1.25em;height:1.25em"><use href="#i-image"/></svg>
             <input type="file" id="cbFile" accept="image/*" multiple hidden>
         </label>
         <span class="cb-target" id="cbTarget">群发给全部模型</span>
@@ -659,6 +729,10 @@
     // }
     let tasks = [];
     let cardSeq = 0;
+
+    // 【简约图标】JS 动态节点用的 SVG 图标快捷函数（配合 <body> 里的 symbol 库）
+    const ICO = n => '<svg class="ic"><use href="#' + n + '"/></svg>';
+    const EL = (tag, cls, html) => { const n = el(tag, cls); if (html != null) n.innerHTML = html; return n; };
 
     // ================= Markdown =================
     if (window.marked) {
@@ -777,20 +851,20 @@
             item.appendChild(el('span', 'm-dot ' + m.type));
             item.appendChild(el('span', 'm-name', m.label));
             if (m.vision) {
-                const eye = el('span', 'm-vision', '👁');
+                const eye = EL('span', 'm-vision', ICO('i-eye'));
                 eye.title = '支持图片识图';
                 item.appendChild(eye);
             }
 
             // 约束词按钮（每个模型独立）
-            const ctBtn = el('button', 'm-act m-constraint', '⚙');
+            const ctBtn = EL('button', 'm-act m-constraint', ICO('i-gear'));
             ctBtn.title = '设置「' + m.label + '」的约束词';
             ctBtn.addEventListener('click', (e) => { e.stopPropagation(); openConstraint(m.id, m.label); });
             item.appendChild(ctBtn);
 
             // 删除按钮（仅运行时接入的模型）
             if (m.custom) {
-                const delBtn = el('button', 'm-act m-del', '🗑');
+                const delBtn = EL('button', 'm-act m-del', ICO('i-trash'));
                 delBtn.title = '删除模型「' + m.label + '」';
                 delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteModel(m.id, m.label); });
                 item.appendChild(delBtn);
@@ -802,20 +876,20 @@
                 let btxt = '', bcls = 'm-balance', btitle = '';
                 if (bal.ok && bal.balance !== null && bal.balance !== undefined) {
                     if (bal.group && shownGroups[bal.group]) {
-                        btxt = '💰 共用↑'; btitle = '与上方模型共用同一上游账户';
+                        btxt = ICO('i-wallet') + ' 共用↑'; btitle = '与上方模型共用同一上游账户';
                     } else {
                         if (bal.group) shownGroups[bal.group] = true;
                         const sym = bal.currency === 'CNY' ? '¥' : (bal.currency === 'USD' ? '$' : bal.currency + ' ');
-                        btxt = '💰 ' + sym + bal.balance + (bal.stale ? ' ~' : '');
+                        btxt = ICO('i-wallet') + ' ' + sym + bal.balance + (bal.stale ? ' ~' : '');
                         btitle = bal.provider + ' 账户余额，点击强制刷新';
                         if (bal.balance <= 1) bcls += ' low';
                     }
                 } else {
-                    btxt = '⚠️ ' + (bal.error || '查询失败') + (bal.stale ? ' ~' : '');
+                    btxt = ICO('i-warn') + ' ' + (bal.error || '查询失败') + (bal.stale ? ' ~' : '');
                     bcls += ' err'; btitle = '点击重试';
                 }
                 if (bal.stale) bcls += ' stale';
-                const bEl = el('span', bcls, btxt);
+                const bEl = EL('span', bcls, btxt);
                 bEl.title = btitle;
                 bEl.addEventListener('click', (e) => { e.stopPropagation(); refreshOneBalance(m.id); });
                 item.appendChild(bEl);
@@ -1079,10 +1153,10 @@
         const head = el('div', 'card-head');
         head.appendChild(el('span', 'c-dot ' + task.type));
         head.appendChild(el('span', 'c-name', task.model_label));
-        if (task.vision) head.appendChild(el('span', 'c-vision', '👁'));
+        if (task.vision) head.appendChild(EL('span', 'c-vision', ICO('i-eye')));
         const statusTag = el('span', 'c-status'); statusTag.id = 'st-' + task.task_id;
         head.appendChild(statusTag);
-        const cReset = el('button', 'card-reset', '🔄');
+        const cReset = EL('button', 'card-reset', ICO('i-undo'));
         cReset.title = '重置该会话（清空本卡上下文 + 对话）';
         cReset.addEventListener('click', () => resetCard(task.task_id));
         head.appendChild(cReset);
@@ -1105,7 +1179,7 @@
             fuseDragId = task.task_id;
             card.classList.add('dragging');
             // 跟随指针的融合提示气泡
-            const ghost = el('div', 'fuse-ghost', '🧩 融合「' + (task.model_label || task.model_id) + '」');
+            const ghost = el('div', 'fuse-ghost', '融合「' + (task.model_label || task.model_id) + '」');
             document.body.appendChild(ghost);
             ghost.style.left = (e.clientX + 14) + 'px';
             ghost.style.top = (e.clientY + 14) + 'px';
@@ -1166,7 +1240,7 @@
                 Array.from(fileInput.files || []).forEach(f => addImage(task.task_id, f));
                 fileInput.value = '';
             });
-            const imgBtn = el('button', 'img-btn', '🖼');
+            const imgBtn = EL('button', 'img-btn', ICO('i-image'));
             imgBtn.title = '添加图片（支持多张）';
             imgBtn.addEventListener('click', () => fileInput.click());
             inputRow.appendChild(fileInput);
@@ -1188,7 +1262,7 @@
         rbMask.id = 'rb-' + task.task_id;
         rbMask.innerHTML =
             '<div class="rb-box">' +
-              '<div class="rb-title">⚠️ 回滚确认</div>' +
+              '<div class="rb-title">' + ICO('i-warn') + ' 回滚确认</div>' +
               '<div class="rb-text">本次任务在迭代中被中断，可能留下未完成的中间改动。是否执行回滚，撤销这些改动？</div>' +
               '<div class="rb-actions">' +
                 '<button class="rb-cancel">再想想</button>' +
@@ -1323,7 +1397,7 @@
         const stage = $('stage');
         if (!stage.querySelector('.card')) {
             const hint = el('div', 'stage-empty');
-            hint.innerHTML = '<div class="big">🖥️</div>从左侧点击模型，把它流入大屏开始对比<br>（最多 6 个，上三下三）';
+            hint.innerHTML = '<div class="big"><svg class="ic" style="width:46px;height:46px;stroke-width:1.3"><use href="#i-monitor"/></svg></div>从左侧点击模型，把它流入大屏开始对比<br>（最多 6 个，上三下三）';
             stage.appendChild(hint);
         }
     }
@@ -1357,8 +1431,8 @@
         const panel = el('div', 'pause-panel');
         panel.id = 'pp-' + task.task_id;
         panel.innerHTML =
-            '<div class="pp-tip"><span class="warn">⏸️ 已达到最大迭代次数，任务尚未完成。</span></div>' +
-            `<div class="pp-tokens">🪙 消耗累计中：${tokens ? tokens.total : 0} tokens` +
+            '<div class="pp-tip"><span class="warn">' + ICO('i-pause') + ' 已达到最大迭代次数，任务尚未完成。</span></div>' +
+            `<div class="pp-tokens">${ICO('i-coin')} 消耗累计中：${tokens ? tokens.total : 0} tokens` +
             (tokens ? `（入 ${tokens.prompt} / 出 ${tokens.completion}）` : '') + '</div>' +
             '<div class="pp-actions">' +
               '<button class="primary pp-resume">▶ 继续执行</button>' +
@@ -1403,14 +1477,11 @@
         const hasImages = task.images && task.images.length > 0;
         if (!isControl && !message && !hasImages) return;
 
-        // 纯文本 → content 用 str（保持旧行为）；带图 → OpenAI 多模态数组
-        let sendContent = message;
-        if (hasImages) {
-            sendContent = [];
-            if (message) sendContent.push({ type: 'text', text: message });
-            else sendContent.push({ type: 'text', text: '请描述这些图片。' });
-            task.images.forEach(img => sendContent.push({ type: 'image_url', image_url: { url: img.data_url } }));
-        }
+        // 【契约对齐·方案A】后端 ChatRequest 是 message: str + images: List[str]：
+        // 文字走 message，图片以 base64 dataURL 数组走 images，多模态数组由后端拼装。
+        // 注意：必须在下方 task.images = [] 之前取走 dataURL，否则图片会丢失。
+        const sendImages = hasImages ? task.images.map(img => img.data_url) : [];
+        const sendMessage = (hasImages && !message) ? '请描述这些图片。' : message;
 
         task.status = 'running';
         task.error_msg = null;
@@ -1468,18 +1539,27 @@
                 method:'POST',
                 headers:{ 'Content-Type':'application/json' },
                 body: JSON.stringify(task.fusion ? {   // 【多模型融合】契约：FuseChatRequest（成员并答 + 裁判合成）
-                        message: isControl ? '' : sendContent,
+                        message: isControl ? '' : sendMessage,
+                        images: isControl ? [] : sendImages,
                         user_id: USER_ID,
                         models: task.fusion.models.map(x => x.model_id),
                         judge_model: task.fusion.judgeModelId,
                     } : {
-                        message: isControl ? '' : sendContent,
+                        message: isControl ? '' : sendMessage,
+                        images: isControl ? [] : sendImages,
                         user_id: USER_ID,
                         model: task.model_id,
                         resume: !!opts.resume,
                         abandon: !!opts.abandon,
                     })
             });
+            // 【P0】HTTP 层错误必须显式抛出：否则 4xx/5xx 的 JSON 响应体里没有 "data: " 行，
+            // SSE 解析器一个事件都读不到，气泡留白、界面毫无提示（表现为"发了没反应"）。
+            if (!res.ok) {
+                let detail = '';
+                try { const j = await res.json(); detail = JSON.stringify(j.detail || j); } catch (e) {}
+                throw new Error('HTTP ' + res.status + ' ' + detail);
+            }
             const reader = res.body.getReader();
             const decoder = new TextDecoder('utf-8');
             let buffer = '';
@@ -1579,8 +1659,8 @@
                     renderTokenTag(agentDiv, finalTokens);
                     const note = el('div', 'pause-panel done-state');
                     note.innerHTML = '<div class="pp-tip">✋ 已结束本次任务。上下文已保留当前进度，可继续对话；如需清空请重置该卡。</div>' +
-                        `<div class="pp-tokens">🪙 消耗累计：${finalTokens.total} tokens</div>` +
-                        (needRollback ? '<div class="pp-actions"><button class="primary rb-open">↩️ 回滚改动</button></div>' : '');
+                        `<div class="pp-tokens">${ICO('i-coin')} 消耗累计：${finalTokens.total} tokens</div>` +
+                        (needRollback ? `<div class="pp-actions"><button class="primary rb-open">${ICO('i-undo')} 回滚改动</button></div>` : '');
                     agentDiv.appendChild(note);
                     if (needRollback) {
                         note.querySelector('.rb-open').addEventListener('click', () => openRollbackConfirm(task));
@@ -1955,8 +2035,17 @@
         return chains;
     }
 
+    // 视图分发：topic = 按提问内容分叉（默认）；chat = 旧版按对话直线
     function palRender() {
+        if (palUI.view === 'topic') {
+            try { palRenderTopic(); return; } catch (e) { console.error('话题视图渲染失败，回退对话视图', e); palUI.view = 'chat'; }
+        }
+        palRenderChat();
+    }
+
+    function palRenderChat() {
         const d = palUI, world = d.world;
+        d.legend.innerHTML = '链条 = 模型对话 · 卡片 = 一轮问答 · 时间从左到右<br>' + ICO('i-warn') + ' 红虚线卡 = 发送失败的记忆 · 点击卡片查看完整历史<br>拖拽平移 · 滚轮缩放 · 数据存后端，跨设备可查';
         world.querySelectorAll('.pal-card, .pal-chain-tag, .pal-world-empty').forEach(n => n.remove());
         d.cards = []; d.byUid = {};
         let maxX = 0;
@@ -1965,7 +2054,7 @@
             const tag = el('div', 'pal-chain-tag');
             tag.style.top = (y + 52) + 'px';
             tag.innerHTML = '<span class="pal-dot" style="background:' + ch.color + '"></span><span class="pal-tag-t">' + palEsc(ch.label) + '</span><span class="pal-tag-n">' + ch.cards.length + ' 轮</span>';
-            if (ch.status === 'error') { tag.classList.add('failed'); tag.innerHTML = '⚠ ' + tag.innerHTML; }
+            if (ch.status === 'error') { tag.classList.add('failed'); tag.innerHTML = ICO('i-warn') + tag.innerHTML; }
             world.appendChild(tag);
             ch.cards.forEach((c, ri) => {
                 c.uid = ch.id + '#' + c.round; c.chain = ch;
@@ -1977,13 +2066,13 @@
                 if (failedRound) card.title = ch.errorMsg || '发送失败';
                 const aTxt = c.aFull ? c.aFull.slice(0, 150)
                     : (failedRound ? '✖ ' + ((ch.errorMsg || '发送失败') + '').slice(0, 110)
-                    : (c.pending ? '⏳ 等待回复…' : '（无回复内容）'));
+                    : (c.pending ? ICO('i-clock') + ' 等待回复…' : '（无回复内容）'));
                 card.innerHTML =
                     '<div class="pal-ch"><span class="pal-dot" style="background:' + ch.color + '"></span><b>#' + c.round + '</b>' +
                     '<span class="pal-open">完整 ↗</span></div>' +
                     '<div class="pal-q"></div><div class="pal-a"></div>';
-                card.querySelector('.pal-q').textContent = '👤 ' + (c.qFull.slice(0, 90) || '（无文字）');
-                card.querySelector('.pal-a').textContent = '🤖 ' + aTxt;
+                card.querySelector('.pal-q').innerHTML = ICO('i-user') + ' ' + palEsc(c.qFull.slice(0, 90) || '（无文字）');
+                card.querySelector('.pal-a').innerHTML = ICO('i-bot') + ' ' + palEsc(aTxt);
                 card.addEventListener('click', () => { if (palDragged) return; palOpenHistory(ch, c.uid); });
                 c.node = card;
                 world.appendChild(card);
@@ -1993,7 +2082,7 @@
         d.w = maxX + 180; d.h = PAL_PAD_Y + d.chains.length * PAL_ROW_H + 120;
         if (!d.chains.length) {   // 【空库提示】后端+本地都无记忆时给出引导
             const hint = el('div', 'pal-world-empty');
-            hint.innerHTML = '🫙 记忆库还是空的<br><b>在任意卡片聊一轮，对话会自动沉淀为宫殿的一条链</b><br>支持回溯历史记录 · 跨设备同步';
+            hint.innerHTML = ICO('i-box') + ' 记忆库还是空的<br><b>在任意卡片聊一轮，对话会自动沉淀为宫殿的一条链</b><br>支持回溯历史记录 · 跨设备同步';
             world.appendChild(hint);
         }
         const svg = d.edges;
@@ -2018,7 +2107,10 @@
     }
 
     function palSyncChainVis() {
-        palUI.cards.forEach(c => c.node.classList.toggle('pal-dim', !c.chain.enabled || (palUI.failOnly && c.chain.status !== 'error')));
+        palUI.cards.forEach(c => {
+            const grp = palUI.view === 'topic' ? c.topic : c.chain;
+            c.node.classList.toggle('pal-dim', !grp || !grp.enabled || (palUI.failOnly && c.chain.status !== 'error'));
+        });
     }
 
     function palClamp(v, a, b) { const lo = Math.min(a, b), hi = Math.max(a, b); return Math.min(Math.max(v, lo), hi); }
@@ -2089,16 +2181,17 @@
         d.cards.forEach(c => c.node.classList.remove('hit', 'best'));
         d.list.innerHTML = '';
         if (!kw) { d.count.textContent = '输入关键词开始检索'; d.list.innerHTML = '<div class="pal-empty">输入关键词开始检索</div>'; return; }
-        const hits = d.cards.filter(c => c.chain.enabled).map(c => {
+        const hits = d.cards.filter(c => { const g = d.view === 'topic' ? c.topic : c.chain; return g && g.enabled; }).map(c => {
             const qs = c.qFull.toLowerCase().split(kw.toLowerCase()).length - 1;
             const as = c.aFull.toLowerCase().split(kw.toLowerCase()).length - 1;
             return { c, score: qs * 3 + as * 2, inQ: qs > 0 };
         }).filter(h => h.score > 0).sort((a, b) => b.score - a.score);
         if (!hits.length) { d.count.textContent = '未命中任何卡片'; d.list.innerHTML = '<div class="pal-empty">没有匹配的记忆</div>'; return; }
-        d.count.textContent = '命中 ' + hits.length + ' 张卡片 · 最佳 → #' + hits[0].c.round + '（' + hits[0].c.chain.label + '）';
+        const labelOf = c => (d.view === 'topic' ? (c.chat && c.chat.label) : (c.chain && c.chain.label)) || '';
+        d.count.textContent = '命中 ' + hits.length + ' 张卡片 · 最佳 → #' + hits[0].c.round + '（' + labelOf(hits[0].c) + '）';
         hits.forEach((h, i) => {
             const item = el('div', 'pal-ritem' + (i === 0 ? ' is-best' : ''));
-            item.innerHTML = '<div class="pal-rhead">#' + h.c.round + ' · ' + palEsc(h.c.chain.label) + ' · 匹配 ' + h.score + '</div><div class="pal-rsnip">' + palSnippet(h.inQ ? h.c.qFull : h.c.aFull, kw) + '</div>';
+            item.innerHTML = '<div class="pal-rhead">#' + h.c.round + ' · ' + palEsc(labelOf(h.c)) + ' · 匹配 ' + h.score + '</div><div class="pal-rsnip">' + palSnippet(h.inQ ? h.c.qFull : h.c.aFull, kw) + '</div>';
             item.addEventListener('click', () => palFocusCard(h.c));
             d.list.appendChild(item);
             h.c.node.classList.add('hit');
@@ -2116,15 +2209,19 @@
         const mask = el('div', 'pal-mask');
         mask.innerHTML =
             '<div class="pal-win">' +
-              '<div class="pal-top"><span class="pal-title">🧠 记忆宫殿 · 对话思维导图</span>' +
+              '<div class="pal-top"><span class="pal-title">' + ICO('i-brain') + ' 记忆宫殿 · 对话思维导图</span>' +
+              '<span class="pal-viewbtns">' +
+                '<button class="pal-vbtn" data-view="topic">' + ICO('i-fork') + '话题分叉</button>' +
+                '<button class="pal-vbtn" data-view="chat">' + ICO('i-chain') + '对话链</button>' +
+              '</span>' +
               '<span class="pal-stat"></span><span class="pal-x">✕</span></div>' +
               '<div class="pal-body">' +
                 '<div class="pal-canvas"><div class="pal-world"><svg class="pal-edges"></svg></div>' +
                   '<div class="pal-zoom"><button id="palZoomOut">−</button><span id="palPct">100%</span><button id="palZoomIn">＋</button><button id="palFit">⌖</button></div>' +
-                  '<div class="pal-legend">链条 = 模型对话 · 卡片 = 一轮问答 · 时间从左到右<br>⚠ 红虚线卡 = 发送失败的记忆 · 点击卡片查看完整历史<br>拖拽平移 · 滚轮缩放 · 数据存后端，跨设备可查</div>' +
+                  '<div class="pal-legend">链条 = 话题 · 卡片 = 一轮问答<br>拖拽平移 · 滚轮缩放 · 点击卡片查看完整历史</div>' +
                 '</div>' +
                 '<div class="pal-side">' +
-                  '<div class="pal-shead">🔍 记忆检索<span class="pal-failbtn" title="画布上只突出显示有发送失败的链">⚠ 只看失败</span></div>' +
+                  '<div class="pal-shead">' + ICO('i-search') + ' 记忆检索<span class="pal-failbtn" title="画布上只突出显示有发送失败的链">' + ICO('i-warn') + ' 只看失败</span></div>' +
                   '<input class="pal-input" placeholder="关键词搜索全部记忆，回车定位最佳">' +
                   '<div class="pal-chips"></div>' +
                   '<div class="pal-count">输入关键词开始检索</div>' +
@@ -2140,7 +2237,14 @@
             stat: mask.querySelector('.pal-stat'), v: { x: 0, y: 0, s: 0.9 },
             chains: [], cards: [], byUid: {}, histMask: null, deb: null,
             failOnly: false, failBtn: mask.querySelector('.pal-failbtn'),
+            view: 'topic', topics: null, treeMap: null, treeSrc: '',
+            legend: mask.querySelector('.pal-legend'), viewbtns: mask.querySelector('.pal-viewbtns'),
         };
+        try { palUI.view = localStorage.getItem('pal_view') === 'chat' ? 'chat' : 'topic'; } catch (e) {}
+        palUI.viewbtns.querySelectorAll('.pal-vbtn').forEach(b => {
+            b.classList.toggle('active', b.dataset.view === palUI.view);
+            b.addEventListener('click', () => palSwitchView(b.dataset.view));
+        });
         palBindCanvas();
         palUI.failBtn.addEventListener('click', () => {   // 【失败记忆】只看失败链
             palUI.failOnly = !palUI.failOnly;
@@ -2163,25 +2267,25 @@
         palCloseHistory();
         const total = chain.cards.filter(c => c.qFull).length + chain.cards.filter(c => c.aFull).length;
         const mask = el('div', 'pal-mask hist');
-        mask.innerHTML = '<div class="pal-hmodal"><div class="modal-head"><span>🧠 ' + palEsc(chain.label) + ' · 完整历史（' + total + ' 条消息）</span><span class="modal-x">✕</span></div><div class="pal-hbody"></div></div>';
+        mask.innerHTML = '<div class="pal-hmodal"><div class="modal-head"><span>' + ICO('i-brain') + ' ' + palEsc(chain.label) + ' · 完整历史（' + total + ' 条消息）</span><span class="modal-x">✕</span></div><div class="pal-hbody"></div></div>';
         const body = mask.querySelector('.pal-hbody');
         chain.cards.forEach(c => {
             if (c.qFull) {
                 const m = el('div', 'pal-hmsg user');
                 m.dataset.uid = c.uid;
-                const h = el('div', 'pal-hhead', '👤 用户 · #' + c.round);
+                const h = EL('div', 'pal-hhead', ICO('i-user') + ' 用户 · #' + c.round);
                 const b = el('div', 'pal-hu'); b.textContent = c.qFull;
                 m.appendChild(h); m.appendChild(b);
-                if (c.pending) { const w = el('div', 'pal-hwait', '⏳ 本轮尚未收到回复'); m.appendChild(w); }
+                if (c.pending) { const w = EL('div', 'pal-hwait', ICO('i-clock') + ' 本轮尚未收到回复'); m.appendChild(w); }
                 body.appendChild(m);
                 if (c.pending && chain.status === 'error') {
-                    body.appendChild(el('div', 'pal-herr', '✖ 发送失败：' + (chain.errorMsg || '未知错误')));
+                    body.appendChild(EL('div', 'pal-herr', ICO('i-warn') + ' 发送失败：' + palEsc(chain.errorMsg || '未知错误')));
                 }
             }
             if (c.aFull) {
                 const m = el('div', 'pal-hmsg bot');
                 m.dataset.uid = c.uid;
-                const h = el('div', 'pal-hhead', '🤖 ' + chain.label + ' · #' + c.round);
+                const h = EL('div', 'pal-hhead', ICO('i-bot') + ' ' + palEsc(chain.label) + ' · #' + c.round);
                 const b = el('div', 'pal-ha'); b.innerHTML = renderMarkdown(c.aFull);
                 m.appendChild(h); m.appendChild(b);
                 body.appendChild(m);
@@ -2248,17 +2352,211 @@
         d.chains.forEach((c, i) => { c.color = PAL_COLORS[i % PAL_COLORS.length]; });   // 重排后重发调色板
         if (!d.mask.classList.contains('show')) return;   // 弹窗已关：仅更新缓存，下次打开生效
         const kw = d.input.value.trim();
+        d.topics = null;   // 数据变化：话题需重建
         palRender();
+        setTimeout(palFitView, 40);   // 后端数据异步到达后重新自适应视野，避免卡片落在视野外
         d.stat.textContent = d.chains.length
             ? d.chains.length + ' 条链 · ' + d.cards.length + ' 张卡片 · 数据源：后端记忆 + 本地会话'
             : '后端记忆库暂无档案：在卡片里聊一轮即自动沉淀到这里';
         if (kw) palDoSearch();
     }
 
+    // ================= 【话题分叉】按提问内容建树 =================
+    // 后端语义树（/memory/palace_tree，MiniLM 嵌入）优先；不可达时用前端 bigram 相似度兜底。
+    const PAL_TOPIC_COLORS = ['#4f8cff', '#a06bff', '#ff8c42', '#2fbf8f', '#e5534b', '#d4a72c', '#3aa6b9', '#c95d9e'];
+
+    function palDice(a, b) {
+        const grams = s => { const set = new Set(); for (let i = 0; i + 1 < s.length; i++) set.add(s.slice(i, i + 2)); return set; };
+        const A = grams(a), B = grams(b);
+        if (!A.size || !B.size) return 0;
+        let inter = 0; A.forEach(g => { if (B.has(g)) inter++; });
+        return 2 * inter / (A.size + B.size);
+    }
+
+    // 前端兜底分叉：与后端同规则（短句挂同话上一卡；相似度达阈值挂父卡；否则新话题）
+    function palLocalTree() {
+        const list = [];
+        palUI.chains.forEach(ch => ch.cards.forEach(c => {
+            if (c.qFull) list.push({ uid: c.uid, chat: ch.id, q: c.qFull, t: ch.updatedAt || '', r: c.round });
+        }));
+        list.sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : (a.chat < b.chat ? -1 : a.chat > b.chat ? 1 : a.r - b.r)));
+        const parents = {}; const seen = []; const prevByChat = {};
+        list.forEach(c => {
+            let parent = null;
+            if (c.q.length <= 10 && prevByChat[c.chat]) {
+                parent = prevByChat[c.chat];   // 短追问默认延续本对话上一话题
+            } else {
+                let best = 0.35, buid = null;
+                seen.forEach(e => { const s = palDice(c.q, e.q); if (s > best) { best = s; buid = e.uid; } });
+                if (buid) parent = buid;
+            }
+            parents[c.uid] = parent;
+            seen.push(c);
+            prevByChat[c.chat] = c.uid;
+        });
+        return parents;
+    }
+
+    // 拉取后端语义分叉结果（uid -> parent）
+    function palFetchTree(done) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 8000);
+        fetch('/memory/palace_tree?limit=300', { signal: ctrl.signal })
+            .then(r => r.json())
+            .then(res => {
+                clearTimeout(timer);
+                if (res && res.ok && res.data && Array.isArray(res.data.cards)) {
+                    const map = {};
+                    res.data.cards.forEach(c => { map[c.uid] = c.parent || null; });
+                    palUI.treeMap = map; palUI.treeSrc = 'backend';
+                    if (done) done(true);
+                } else if (done) done(false);
+            })
+            .catch(() => { clearTimeout(timer); if (done) done(false); });
+    }
+
+    // 把全部卡片归入话题（根卡 = 话题头）；无提问的卡跟随同话上一张
+    function palBuildTopics() {
+        const treeMap = palUI.treeMap || palLocalTree();
+        const byUid = {};
+        palUI.chains.forEach(ch => ch.cards.forEach(c => { c.chat = ch; c.uid = ch.id + '#' + c.round; byUid[c.uid] = c; }));
+        const topics = []; const byRoot = {};
+        palUI.chains.forEach(ch => {
+            let prevT = null;
+            ch.cards.forEach(c => {
+                let root;
+                if (c.qFull) {
+                    let p = Object.prototype.hasOwnProperty.call(treeMap, c.uid) ? treeMap[c.uid] : null;
+                    if (p && !byUid[p]) p = null;
+                    root = c.uid;
+                    let guard = 0;
+                    while (p && byUid[p] && guard++ < 50) { root = p; p = treeMap[p]; if (p && !byUid[p]) p = null; }
+                } else {
+                    root = prevT ? prevT.id : c.uid;
+                }
+                let t = byRoot[root];
+                if (!t) {
+                    const rc = byUid[root];
+                    t = { id: root, label: (rc && rc.qFull ? rc.qFull.slice(0, 14) : '（无文字）'), cards: [], enabled: true, chatIds: {} };
+                    byRoot[root] = t; topics.push(t);
+                }
+                c.topic = t; t.cards.push(c);
+                t.chatIds[ch.id] = true;
+                prevT = t;
+            });
+        });
+        topics.sort((a, b) => {
+            const ra = byUid[a.id] || {}, rb = byUid[b.id] || {};
+            const ta = (ra.chat && ra.chat.updatedAt) || '', tb = (rb.chat && rb.chat.updatedAt) || '';
+            if (ta !== tb) return ta < tb ? -1 : 1;
+            return (ra.round || 0) - (rb.round || 0);
+        });
+        topics.forEach((t, i) => { t.color = PAL_TOPIC_COLORS[i % PAL_TOPIC_COLORS.length]; });
+        palUI.topics = topics;
+    }
+
+    function palEdgePath(a, b, color, opacity, dashed) {
+        if (!a || !a.node || !b) return '';
+        const x1 = a.x + PAL_CW, y1 = a.y + 70, x2 = b.x, y2 = b.y + 70, mx = (x1 + x2) / 2;
+        return '<path d="M ' + x1 + ' ' + y1 + ' C ' + mx + ' ' + y1 + ', ' + mx + ' ' + y2 + ', ' + x2 + ' ' + y2 + '" stroke="' + color + '" stroke-width="2" fill="none" opacity="' + opacity + '"' + (dashed ? ' stroke-dasharray="5 4"' : '') + '/>' +
+            '<circle cx="' + x1 + '" cy="' + y1 + '" r="3.5" fill="' + color + '"/><circle cx="' + x2 + '" cy="' + y2 + '" r="3.5" fill="' + color + '"/>';
+    }
+
+    // 话题视图：每行一个话题（按提问内容分叉），跨话题分叉用虚线连回父卡
+    function palRenderTopic() {
+        const d = palUI, world = d.world;
+        if (!d.topics) palBuildTopics();
+        world.querySelectorAll('.pal-card, .pal-chain-tag, .pal-world-empty').forEach(n => n.remove());
+        d.cards = []; d.byUid = {};
+        d.legend.innerHTML = '链条 = 话题（按提问内容分叉）· 卡片 = 一轮问答 · 时间从左到右<br>' + ICO('i-warn') + ' 红虚线卡 = 发送失败 · 虚线连线 = 从其他话题分叉而来<br>拖拽平移 · 滚轮缩放 · 点击卡片查看完整历史';
+        let maxX = 0;
+        d.topics.forEach((t, ti) => {
+            const y = PAL_PAD_Y + ti * PAL_ROW_H;
+            t.cards.sort((a, b) => {
+                const ta = (a.chat.updatedAt || ''), tb = (b.chat.updatedAt || '');
+                if (ta !== tb) return ta < tb ? -1 : 1;
+                return a.round - b.round;
+            });
+            const tag = el('div', 'pal-chain-tag');
+            tag.style.top = (y + 52) + 'px';
+            const nChats = Object.keys(t.chatIds).length;
+            tag.innerHTML = '<span class="pal-dot" style="background:' + t.color + '"></span><span class="pal-tag-t">' + palEsc(t.label) + '</span><span class="pal-tag-n">' + t.cards.length + '卡' + (nChats > 1 ? ' · ' + nChats + '话' : '') + '</span>';
+            world.appendChild(tag);
+            t.cards.forEach((c, k) => {
+                c.x = PAL_PAD_X + k * (PAL_CW + PAL_GAP); c.y = y;
+                maxX = Math.max(maxX, c.x + PAL_CW);
+                const failedRound = c.pending && c.chat.status === 'error';
+                const card = el('div', 'pal-card' + (c.pending ? ' pal-pending' : '') + (failedRound ? ' pal-error' : ''));
+                card.style.left = c.x + 'px'; card.style.top = c.y + 'px';
+                if (failedRound) card.title = c.chat.errorMsg || '发送失败';
+                const aTxt = c.aFull ? c.aFull.slice(0, 150)
+                    : (failedRound ? '✖ ' + ((c.chat.errorMsg || '发送失败') + '').slice(0, 110)
+                    : (c.pending ? ICO('i-clock') + ' 等待回复…' : '（无回复内容）'));
+                card.innerHTML =
+                    '<div class="pal-ch"><span class="pal-dot" style="background:' + t.color + '"></span><b>#' + c.round + '</b>' +
+                    '<span class="pal-chatbadge">' + palEsc((c.chat.label || '').slice(0, 12)) + '</span>' +
+                    (k === 0 ? '<span class="pal-forkmark">' + ICO('i-fork') + '新话题</span>' : '') +
+                    '<span class="pal-open">完整 ↗</span></div>' +
+                    '<div class="pal-q"></div><div class="pal-a"></div>';
+                card.querySelector('.pal-q').innerHTML = ICO('i-user') + ' ' + palEsc(c.qFull.slice(0, 90) || '（无文字）');
+                card.querySelector('.pal-a').innerHTML = ICO('i-bot') + ' ' + palEsc(aTxt);
+                card.addEventListener('click', () => { if (palDragged) return; palOpenHistory(c.chat, c.uid); });
+                c.node = card;
+                world.appendChild(card);
+                d.cards.push(c); d.byUid[c.uid] = c;
+            });
+        });
+        d.w = maxX + 180; d.h = PAL_PAD_Y + d.topics.length * PAL_ROW_H + 120;
+        if (!d.cards.length) {
+            const hint = el('div', 'pal-world-empty');
+            hint.innerHTML = ICO('i-box') + ' 记忆库还是空的<br><b>在任意卡片聊一轮，对话会自动沉淀为宫殿的一条链</b><br>支持回溯历史记录 · 跨设备同步';
+            world.appendChild(hint);
+        }
+        const svg = d.edges;
+        svg.setAttribute('width', d.w); svg.setAttribute('height', d.h);
+        let sh = '';
+        d.topics.forEach(t => t.cards.forEach((c, k) => {
+            if (k > 0) {
+                sh += palEdgePath(t.cards[k - 1], c, t.color, 0.6, false);
+            } else {
+                const puid = d.treeMap ? d.treeMap[c.uid] : null;
+                const pc = puid ? d.byUid[puid] : null;
+                if (pc && pc.topic !== t) sh += palEdgePath(pc, c, t.color, 0.45, true);
+            }
+        }));
+        svg.innerHTML = sh;
+        d.chipsBox.innerHTML = '';
+        d.topics.forEach(t => {
+            const s = el('span', 'pal-chip');
+            s.innerHTML = '<span class="pal-dot" style="background:' + t.color + '"></span>' + palEsc(t.label);
+            s.addEventListener('click', () => { t.enabled = !t.enabled; s.classList.toggle('off', !t.enabled); palSyncChainVis(); palDoSearch(); });
+            d.chipsBox.appendChild(s);
+        });
+        palSyncChainVis();
+    }
+
+    function palSwitchView(v) {
+        if (!palUI || v === palUI.view) return;
+        palUI.view = v;
+        try { localStorage.setItem('pal_view', v); } catch (e) {}
+        palUI.viewbtns.querySelectorAll('.pal-vbtn').forEach(x => x.classList.toggle('active', x.dataset.view === v));
+        palUI.topics = null;
+        palRender();
+        if (v === 'topic' && !palUI.treeMap) {
+            palFetchTree(ok => {
+                palUI.treeSrc = ok ? 'backend' : 'local';
+                if (palUI.mask.classList.contains('show')) { palUI.topics = null; palRender(); if (palUI.input.value.trim()) palDoSearch(); }
+            });
+        }
+        if (palUI.input.value.trim()) palDoSearch();
+        else { palUI.count.textContent = '输入关键词开始检索'; palUI.list.innerHTML = '<div class="pal-empty">输入关键词开始检索</div>'; }
+    }
+
     function palOpen() {
         const chains = palBuildData();
         if (!palUI) palBuildUI();
         palUI.chains = chains;
+        palUI.topics = null;
         palUI.input.value = '';
         palUI.count.textContent = '输入关键词开始检索';
         palUI.list.innerHTML = '<div class="pal-empty">输入关键词开始检索</div>';
@@ -2269,6 +2567,18 @@
         palUI.mask.classList.add('show');
         setTimeout(palFitView, 40);   // 布局完成后再自适应全览
         palPullBackend();             // 【后端记忆】不再设本地闸门：打开即拉取，没聊天也能看历史
+        if (palUI.view === 'topic' && !palUI.treeMap) {
+            palFetchTree(ok => {      // 【话题分叉】语义树就绪后用后端结果重渲
+                palUI.treeSrc = ok ? 'backend' : 'local';
+                if (palUI.mask.classList.contains('show')) {
+                    palUI.topics = null; palRender();
+                    if (palUI.view === 'topic' && chains.length) {
+                        palUI.stat.textContent = chains.length + ' 条链 · ' + palUI.cards.length + ' 张卡片 · 话题分叉：' + (ok ? '语义（服务端）' : '近似（本地兜底）');
+                    }
+                    if (palUI.input.value.trim()) palDoSearch();
+                }
+            });
+        }
     }
 
 
@@ -2295,7 +2605,7 @@
 <div class="modal-mask" id="addModelModal">
     <div class="modal">
         <div class="modal-head">
-            ➕ 接入模型
+            <svg class="ic"><use href="#i-plus"/></svg> 接入模型
             <span class="modal-x" onclick="closeModal('addModelModal')">×</span>
         </div>
         <div class="modal-body">
@@ -2330,16 +2640,16 @@
 
 <!-- ============ 【导出P1】导出格式 mini 菜单（fixed 定位，挂在导出按钮下） ============ -->
 <div id="exportMenu">
-    <div class="ex-item" data-fmt="md">⬇ 下载 Markdown</div>
+    <div class="ex-item" data-fmt="md"><svg class="ic"><use href="#i-download"/></svg> 下载 Markdown</div>
     <div class="ex-item" data-fmt="json">{ } 下载 JSON</div>
-    <div class="ex-item" data-fmt="copy">📋 复制全文</div>
+    <div class="ex-item" data-fmt="copy"><svg class="ic"><use href="#i-copy"/></svg> 复制全文</div>
 </div>
 
 <!-- ============ 弹窗：计费管理 ============ -->
 <div class="modal-mask" id="billingModal">
     <div class="modal">
         <div class="modal-head">
-            💳 计费管理
+            <svg class="ic"><use href="#i-card"/></svg> 计费管理
             <span class="modal-x" onclick="closeModal('billingModal')">×</span>
         </div>
         <div class="modal-body">
@@ -2374,7 +2684,7 @@
 <div class="modal-mask" id="constraintModal">
     <div class="modal">
         <div class="modal-head">
-            ⚙️ 修改约束词 · <span id="ctModelName" style="font-weight:600"></span>
+            <svg class="ic"><use href="#i-gear"/></svg> 修改约束词 · <span id="ctModelName" style="font-weight:600"></span>
             <span class="modal-x" onclick="closeModal('constraintModal')">×</span>
         </div>
         <div class="modal-body">
@@ -2382,7 +2692,7 @@
             <div class="field">
                 <label>约束词（该模型的 system prompt 业务约束部分）</label>
                 <textarea id="ctText" placeholder="留空 = 恢复默认约束词"></textarea>
-                <span class="hint">⚠️ 项目接口契约始终拼在约束词之后，且不可在此修改。</span>
+                <span class="hint"><svg class="ic"><use href="#i-warn"/></svg> 项目接口契约始终拼在约束词之后，且不可在此修改。</span>
             </div>
         </div>
         <div class="modal-foot">

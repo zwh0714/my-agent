@@ -47,6 +47,16 @@ semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
 # 挂载静态文件
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# 【记忆宫殿·话题分叉】后台预热嵌入模型，避免首次打开宫殿等待加载
+def _warm_palace_tree():
+    try:
+        import palace_tree
+        palace_tree.warmup()
+    except Exception as e:
+        print("⚠️ palace_tree warmup skipped:", e)
+
+threading.Thread(target=_warm_palace_tree, daemon=True).start()
+
 
 # ============ 请求/响应模型 ============
 class ChatRequest(BaseModel):
@@ -717,6 +727,22 @@ async def memory_chats_delete(chat_id: str):
         loop = asyncio.get_running_loop()
         removed = await loop.run_in_executor(executor, memory_store.delete_chat_card, chat_id)
         return {"ok": removed, "data": {"chat_id": chat_id}, "error": None if removed else "chat not found"}
+    except Exception as e:
+        return {"ok": False, "data": None, "error": str(e)}
+
+
+@app.get("/memory/palace_tree")
+async def memory_palace_tree(limit: int = 300, threshold: float = 0.70):
+    """【记忆宫殿·话题分叉】按提问内容计算卡片父子关系（跨对话语义挂靠）。
+    失败时返回 ok=false，前端自动降级为本地相似度分叉。"""
+    try:
+        import palace_tree
+        limit = max(1, min(int(limit), 500))
+        threshold = max(0.05, min(float(threshold), 0.95))
+        loop = asyncio.get_running_loop()
+        data = await loop.run_in_executor(
+            executor, palace_tree.build_palace_tree, limit, threshold)
+        return {"ok": True, "data": data, "error": None}
     except Exception as e:
         return {"ok": False, "data": None, "error": str(e)}
 

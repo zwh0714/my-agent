@@ -47,3 +47,6 @@ Thumbs.db
 /python_*.html
 /style_guide_glm.md
 /static/python_*
+
+# ===== 个人笔记目录（已从仓库移除，禁止再次纳管）=====
+/knowledge/

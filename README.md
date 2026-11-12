@@ -140,3 +140,5 @@ docker run -d --name my-agent -p 8000:8000 \
 - 本地模型默认地址指向一台内网 Ollama，部署到别处请设置 `OLLAMA_BASE_URL`。
 - 余额查询只实现对 DeepSeek 与 SiliconFlow 的官方接口，其余 provider 返回「不支持」，不做猜测性探测。
 - `data/`、`*.db`、`.env` 已在 `.gitignore` 中排除，运行时数据与密钥不会入库。
+
+说明：早期个人学习笔记目录（含明文密钥）已从提交历史中彻底移除，克隆本仓库不会拿到任何密钥。
